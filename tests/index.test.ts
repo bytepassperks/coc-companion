@@ -132,4 +132,27 @@ describe("watch routes", () => {
     expect(body.actions.at(-1)?.key).toBe("hero upgrade:Barbarian King:2");
     vi.unstubAllGlobals();
   });
+
+  it("returns a war prediction response with heuristic metadata", async () => {
+    const testEnv = env() as ReturnType<typeof env> & { DATA: unknown; MODELS: unknown };
+    const emptyBucket = { get: vi.fn().mockResolvedValue(null), list: vi.fn().mockResolvedValue({ objects: [] }) };
+    testEnv.DATA = emptyBucket;
+    testEnv.MODELS = emptyBucket;
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((input: string) => {
+      if (input.includes("/players/")) return Promise.resolve(new Response(JSON.stringify({
+        tag: "#2PYC", name: "Test", townHallLevel: 10, clan: { tag: "#CLAN", name: "Clan" }, heroes: [{ name: "King", level: 40 }],
+      }), { status: 200 }));
+      return Promise.resolve(new Response(JSON.stringify({
+        state: "inWar", teamSize: 5,
+        clan: { members: [{ tag: "#2PYC", name: "Test", townHallLevel: 10, mapPosition: 1 }] },
+        opponent: { members: [{ tag: "#DEF", name: "Def", townHallLevel: 10, mapPosition: 1 }] },
+      }), { status: 200 }));
+    }));
+    const response = await worker.fetch(new Request("https://example.test/api/predict/war/%232PYC"), testEnv as never);
+    const body = await response.json() as { predictions: unknown[]; modelMeta: { mode: string } };
+    expect(response.status).toBe(200);
+    expect(body.predictions).toHaveLength(1);
+    expect(body.modelMeta.mode).toBe("heuristic");
+    vi.unstubAllGlobals();
+  });
 });

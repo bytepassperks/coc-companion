@@ -4,6 +4,7 @@ import type {
   CurrentWar,
   GoldPassSeason,
   Player,
+  RankingsPage,
   RaidSeason,
   WarLogEntry,
 } from "./types";
@@ -84,6 +85,10 @@ export class CocClient {
 
   getCapitalRaidSeasons(clanTag: string) {
     return this.get<ApiList<RaidSeason>>(`/clans/${encodeTag(clanTag)}/capitalraidseasons`);
+  }
+
+  getLocationRankings(location = "global") {
+    return this.get<RankingsPage>(`/locations/${encodeURIComponent(location)}/rankings/players`);
   }
 
   getGoldPassSeason() {

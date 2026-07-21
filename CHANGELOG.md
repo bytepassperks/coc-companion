@@ -2,6 +2,12 @@
 
 ## 2026-07-21
 
+- Added the advisory-only CoC Strategist ML foundation: bounded public-data
+  collection to R2, point-in-time attack events, validated JSON model serving
+  with rollback and heuristic fallback, war prediction and population
+  benchmark endpoints, and the training/publishing documentation. No gameplay
+  automation or private data is used.
+
 - Added a hand-crafted Clash of Clans visual dashboard overhaul with a
   battlefield palette, wood/parchment cards, game-style buttons, resource
   accents, responsive layouts, and tabbed Today, Plan, Clan & War, Account,

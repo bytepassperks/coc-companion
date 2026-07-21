@@ -11,6 +11,8 @@ const completion = document.querySelector("#completion");
 const warStats = document.querySelector("#warStats");
 const clanStats = document.querySelector("#clanStats");
 const capitalStats = document.querySelector("#capitalStats");
+const warPrediction = document.querySelector("#warPrediction");
+const todayBenchmark = document.querySelector("#todayBenchmark");
 const authEmail = document.querySelector("#authEmail");
 const authPassword = document.querySelector("#authPassword");
 const authStatus = document.querySelector("#authStatus");
@@ -72,21 +74,24 @@ async function load() {
     if (sessionToken) await post(`/api/watch/${encodeURIComponent(tag)}`, {}, true);
     const player = await get(`/api/player/${encodeURIComponent(tag)}`);
     const clanTag = player.clan?.tag;
-    const [recs, notifications, accountPlan, savedBase, war, clan, capital] = await Promise.all([
+    const [recs, notifications, accountPlan, savedBase, war, clan, capital, prediction, benchmark] = await Promise.all([
       get(`/api/recommendations/${encodeURIComponent(tag)}`),
       get(`/api/feed/${encodeURIComponent(tag)}`),
       get(`/api/plan/${encodeURIComponent(tag)}`),
       get(`/api/base/${encodeURIComponent(tag)}`),
       clanTag ? get(`/api/war/${encodeURIComponent(clanTag)}`).catch(() => null) : Promise.resolve(null),
       clanTag ? get(`/api/clan/${encodeURIComponent(clanTag)}`).catch(() => null) : Promise.resolve(null),
-      clanTag ? get(`/api/capital/${encodeURIComponent(clanTag)}`).catch(() => null) : Promise.resolve(null)
+      clanTag ? get(`/api/capital/${encodeURIComponent(clanTag)}`).catch(() => null) : Promise.resolve(null),
+      get(`/api/predict/war/${encodeURIComponent(tag)}`).catch(() => null),
+      get(`/api/benchmark/${encodeURIComponent(tag)}`).catch(() => null)
     ]);
     currentPlayer = player;
     if (savedBase) writeBase(savedBase);
     renderIdentity(player, war);
     renderPlayer(player, accountPlan.accountDetails, clan);
     renderPlan(accountPlan);
-    renderClanWar(war, clan, capital);
+    renderClanWar(war, clan, capital, prediction);
+    renderBenchmark(benchmark);
     renderFeed(notifications);
     document.querySelector("#recommendations").innerHTML = recs.length ? recs.map(item => `<li><strong>${escapeHtml(humanizeSubject(item.subject))}${humanizeSubject(item.subject).toLowerCase() === humanizeCategory(item.category).toLowerCase() ? "" : ` <span class="recommendation-category">— ${escapeHtml(humanizeCategory(item.category))}</span>`}</strong><small>${escapeHtml(item.reason)}</small></li>`).join("") : "<li>No configured recommendations.</li>";
     document.querySelector("#goal").value = savedBase?.goal || document.querySelector("#goal").value;
@@ -116,10 +121,17 @@ function renderFeed(notifications) {
   document.querySelector("#todayFeed").innerHTML = html;
 }
 
-function renderClanWar(war, clan, capital) {
+function renderClanWar(war, clan, capital, prediction) {
   warStats.innerHTML = war ? `<p><strong>${escapeHtml(humanizeSlug(war.state))}</strong>${war.endTime ? ` · ends ${escapeHtml(timeUntil(war.endTime))}` : ""}</p><p>Stars: ${war.sides?.map(side => `${escapeHtml(side.name)} ${escapeHtml(side.stars)}`).join(" · ") || "n/a"}</p><p>Destruction: ${war.sides?.map(side => `${escapeHtml(side.name)} ${escapeHtml(side.destructionPercentage)}%`).join(" · ") || "n/a"}</p><p>Attacks used: ${formatNumber(war.members?.reduce((sum, member) => sum + member.attacksUsed, 0) || 0)} · Unattacked: ${escapeHtml((war.unattacked || []).map(member => member.name).join(", ") || "none")}</p><small>${escapeHtml(war.message || "")}</small>` : "<p>No war data.</p>";
   clanStats.innerHTML = clan ? `<p><strong>${escapeHtml(clan.name)}</strong> · level ${escapeHtml(clan.level || "n/a")}</p><p>War wins: ${formatNumber(clan.warWins || 0)} · Winstreak: ${formatNumber(clan.warWinstreak || 0)}</p><h3>Top donors</h3><ol>${(clan.topDonors || []).map(member => `<li>${escapeHtml(member.name)} · ${formatNumber(member.donations)} (${member.donationRatio === null ? "n/a" : escapeHtml(member.donationRatio.toFixed(2))})</li>`).join("")}</ol><small>${escapeHtml(clan.inactiveSignalNote || "")}</small>` : "<p>No clan data.</p>";
   capitalStats.innerHTML = capital ? `<p><strong>${escapeHtml(capital.state || "unknown")}</strong></p><p>Offensive loot: ${formatNumber(capital.offensiveLoot)} · Defensive loot: ${formatNumber(capital.defensiveLoot)}</p><p>Attacks: ${formatNumber(capital.totalAttacks)} · Raids completed: ${formatNumber(capital.raidsCompleted)} · Districts destroyed: ${formatNumber(capital.districtsDestroyed)}</p><p>Average loot/attack: ${formatNumber(Math.round(capital.averageLootPerAttack))}</p><h3>Top raiders</h3><ol>${(capital.topRaiders || []).map(member => `<li>${escapeHtml(member.name || "Unknown")} · ${formatNumber(member.loot)}</li>`).join("")}</ol>` : "<p>No capital data.</p>";
+  warPrediction.innerHTML = prediction?.predictions?.length ? `<p class="advisory-label">Advisory prediction — ${escapeHtml(prediction.modelMeta?.mode || "heuristic")} v${escapeHtml(prediction.modelMeta?.version || "heuristic")}</p><ul>${prediction.predictions.map(item => `<li>${escapeHtml(item.attackerTag)} vs position ${escapeHtml(item.mapPosition || "n/a")}: predicted ${escapeHtml(item.predictedStars)} stars vs target ${escapeHtml(item.starsTarget)} (${Math.round(item.probability * 100)}% chance of 2+)</li>`).join("")}</ul><small>Source: self-collected public war snapshots. No replays, armies, or base layouts are available.</small>` : `<p>${escapeHtml(prediction?.message || "No current-war prediction is available yet.")}</p><small>Predictions are advisory only and never automate attacks.</small>`;
+}
+
+function renderBenchmark(value) {
+  todayBenchmark.innerHTML = value?.state === "ready"
+    ? `<span class="advisory-label">Benchmark: ${escapeHtml(value.percentiles?.trophies)}th percentile trophies</span><small>Compared with ${formatNumber(value.sampleSize)} collected public snapshots.</small>`
+    : value?.message ? `<small>${escapeHtml(value.message)}</small>` : "";
 }
 
 function renderPlan(value) {

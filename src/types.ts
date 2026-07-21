@@ -120,6 +120,11 @@ export interface CurrentWar {
   opponent?: WarClan;
 }
 
+export interface RankingsPage {
+  items: Array<Record<string, unknown>>;
+  paging?: { cursors?: { after?: string } };
+}
+
 export interface WarLogEntry {
   result?: "win" | "lose" | "tie";
   endTime?: string;

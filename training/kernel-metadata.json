@@ -1,0 +1,10 @@
+{
+  "id": "YOUR_KAGGLE_USERNAME/coc-strategist-weekly",
+  "title": "CoC Strategist weekly attack predictor",
+  "code_file": "train.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": false,
+  "enable_internet": true
+}

@@ -61,6 +61,8 @@ The dashboard is a static site in `dashboard/`. Deploy it with Cloudflare Pages 
   unattacked members
 - `GET /api/clan/:clanTag` for clan/member donation analytics and top donors
 - `GET /api/capital/:clanTag` for the latest Capital Raid summary and top raiders
+- `GET /api/predict/war/:tag` for advisory current-war matchup probabilities
+- `GET /api/benchmark/:tag` for a collecting-state or bounded population benchmark
 - `POST /api/watch/:tag` to register a tag for five-minute polling
 - `DELETE /api/watch/:tag` to stop polling
 - `POST /api/ask` with `{ "tag": "#TAG", "question": "..." }`
@@ -106,6 +108,22 @@ copied from those projects.
   unlock analysis. Unlock cards are capped and include their prerequisite
   Barracks, Dark Barracks, Laboratory, or Hero Hall.
 - Next-best-action scoring combines strategic value, unlock value, confidence, cost/time, goal, affordability, and builder/laboratory gating. Workers AI receives the top eight ranked actions for an expert-panel review, but never changes the ranked rules list. Missing AI, model failures, or budget exhaustion fall back to rules-only text.
+
+### CoC Strategist ML advisory
+
+The optional strategist collector stores only self-collected public API
+snapshots and war events in the `DATA` R2 bucket. A compact version-1 JSON
+artifact (linear or gradient-boosted trees) is validated and served from the
+`MODELS` bucket; the Worker evaluates it in pure TypeScript and rolls back to
+the last valid artifact or a deterministic Town Hall/hero heuristic. Training
+materials and the publishing loop are in `training/`, including the
+[model card](training/MODEL_CARD.md).
+
+ML output is advisory-only: it never automates attacks, chooses targets in the
+game client, changes a village, or replaces deterministic upgrade rules. The
+public API has no replays, attack paths, army compositions used in attacks,
+base layouts, telemetry, hidden resources, or timers. Until enough comparable
+snapshots are collected, benchmark responses honestly use a `collecting` state.
 
 ## ToS boundary
 

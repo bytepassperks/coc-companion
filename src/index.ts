@@ -15,6 +15,8 @@ import type { BaseState, GameCatalog, Player, Snapshot } from "./types";
 import { actionKey } from "./checklist";
 import { authenticateUser, bearerToken, createSession, destroySession, registerUser, sessionEmail } from "./auth";
 import { loadCatalog } from "./catalogLoader";
+import { collectWatched } from "./collector";
+import { loadArtifact, predictWar } from "./model";
 
 class ValidationError extends Error {}
 
@@ -120,6 +122,52 @@ export default {
         const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
         const seasons = await client.getCapitalRaidSeasons(clanTag);
         return json(analyzeCapital(seasons.items[0]), cors);
+      }
+      const predictMatch = url.pathname.match(/^\/api\/predict\/war\/([^/]+)$/);
+      if (predictMatch && request.method === "GET") {
+        const tag = decodeURIComponent(predictMatch[1]);
+        assertTag(tag);
+        const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
+        const player = await client.getPlayer(tag);
+        if (!player.clan?.tag) return json({ state: "noClan", message: "This player is not currently in a clan.", predictions: [], modelMeta: { version: "heuristic", mode: "heuristic" } }, cors);
+        let war;
+        try {
+          war = await client.getCurrentWar(player.clan.tag);
+        } catch (error) {
+          if (error instanceof CocApiError && error.code === "accessDenied") return json({ state: "unavailable", message: "War predictions are unavailable because this war is private.", predictions: [], modelMeta: { version: "heuristic", mode: "heuristic" } }, cors);
+          throw error;
+        }
+        const loadedModel = await loadArtifact(env.MODELS, env.STATE);
+        const predictions = predictWar(loadedModel.artifact, player, war);
+        return json({
+          state: war.state,
+          predictions,
+          summary: {
+            averageTwoStarProbability: predictions.length ? predictions.reduce((sum, item) => sum + item.probability, 0) / predictions.length : 0,
+            members: predictions.length,
+          },
+          modelMeta: { version: loadedModel.version, mode: loadedModel.mode },
+        }, cors);
+      }
+      const benchmarkMatch = url.pathname.match(/^\/api\/benchmark\/([^/]+)$/);
+      if (benchmarkMatch && request.method === "GET") {
+        const tag = decodeURIComponent(benchmarkMatch[1]);
+        assertTag(tag);
+        const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
+        const player = await client.getPlayer(tag);
+        const listed = await env.DATA.list({ prefix: "raw/players/", limit: 100 });
+        const values: number[] = [];
+        for (const object of listed.objects) {
+          const stored = await env.DATA.get(object.key);
+          if (!stored) continue;
+          try {
+            const row = JSON.parse((await stored.text()).split("\n")[0]) as { data?: { trophies?: number } };
+            if (typeof row.data?.trophies === "number") values.push(row.data.trophies);
+          } catch { /* Ignore malformed historical rows. */ }
+        }
+        if (values.length < 5) return json({ state: "collecting", message: "Benchmark is collecting public snapshots; more comparable accounts are needed before a percentile is meaningful.", comparable: { trophies: player.trophies, sampleSize: values.length } }, cors);
+        const rank = values.filter((value) => value <= (player.trophies ?? 0)).length;
+        return json({ state: "ready", sampleSize: values.length, percentiles: { trophies: Math.round(rank / values.length * 100) }, comparable: { trophies: player.trophies, townHallLevel: player.townHallLevel } }, cors);
       }
       const baseMatch = url.pathname.match(/^\/api\/base\/([^/]+)$/);
       if (baseMatch && (request.method === "GET" || request.method === "POST")) {
@@ -236,11 +284,19 @@ export default {
 
   async scheduled(_event: ScheduledController, env: Env): Promise<void> {
     const tags = await env.STATE.list({ prefix: "watch:" });
+    const snapshots: Snapshot[] = [];
+    const watchedTags: string[] = [];
     for (const key of tags.keys) {
       const tag = key.name.slice("watch:".length);
       if (!tag) continue;
+      watchedTags.push(tag);
       const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL });
-      await collectNotifications(`#${tag}`, client, env.STATE, notificationConfig);
+      const result = await collectNotifications(`#${tag}`, client, env.STATE, notificationConfig);
+      snapshots.push(result.snapshot);
+    }
+    if (env.DATA) {
+      const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL });
+      await collectWatched(client, env.DATA, env.STATE, watchedTags, snapshots);
     }
   },
 };
@@ -337,7 +393,7 @@ function corsHeaders(request: Request) {
   const headers = new Headers();
   const origin = request.headers.get("Origin");
   if (origin) headers.set("Access-Control-Allow-Origin", origin);
-  headers.set("Access-Control-Allow-Headers", "Content-Type");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   headers.set("Vary", "Origin");
   return headers;

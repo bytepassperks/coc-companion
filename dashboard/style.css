@@ -96,6 +96,8 @@ input, select { width: 100%; padding: .75rem; border: 2px solid #0c151c; border-
 .stat strong, .stat span { display: block; margin-top: .2rem; }
 .stat strong { color: #fff0a7; }
 .api-note { padding: .75rem; border-left: 4px solid var(--gold); background: #281f19; }
+.benchmark-strip, .advisory-label { display: block; color: #ffe071; line-height: 1.45; }
+.benchmark-strip { margin-top: .75rem; padding: .55rem .7rem; border-left: 3px solid var(--elixir); background: rgba(9, 27, 42, .35); }
 .table-wrap { overflow-x: auto; margin-top: .7rem; }
 table { width: 100%; border-collapse: collapse; }
 th, td { padding: .55rem; border-bottom: 1px solid #654c34; text-align: left; white-space: nowrap; }

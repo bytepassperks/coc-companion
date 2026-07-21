@@ -13,6 +13,14 @@ binding = "STATE"
 id = "6645957a2ea8468280ba0fca7b49c148"
 preview_id = "6645957a2ea8468280ba0fca7b49c148"
 
+[[r2_buckets]]
+binding = "DATA"
+bucket_name = "coc-strategist-data"
+
+[[r2_buckets]]
+binding = "MODELS"
+bucket_name = "coc-strategist-models"
+
 [ai]
 binding = "AI"
 
