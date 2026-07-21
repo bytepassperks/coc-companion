@@ -19,3 +19,9 @@
 - Corrected unlock analysis to use the curated real-unlock Town Hall map rather
   than laboratory-level requirements, and excluded seasonal/temporary entries
   from completion percentages.
+- Added read-only clan, current-war, and Capital Raid analytics endpoints,
+  including donation ratios, top donors/raiders, attack usage, and unattacked
+  members.
+- Added compact per-member war-attack diff notifications while wars are active.
+  Ideas were informed by ClashKingBot/clashperk, clashogram, and DonationLogger;
+  no source code was copied.

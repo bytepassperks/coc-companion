@@ -8,6 +8,9 @@ import { collectNotifications } from "./notifications";
 import { getRecommendations } from "./recommendationEngine";
 import { analyzeAccount } from "./analyzer";
 import { getNextBestActions } from "./nextBestAction";
+import { analyzeWar } from "./warAnalytics";
+import { analyzeClan } from "./clanAnalytics";
+import { analyzeCapital } from "./capitalAnalytics";
 import type { Env } from "./workerTypes";
 import type { BaseState, GameCatalog, Player, Snapshot } from "./types";
 
@@ -18,6 +21,40 @@ export default {
     try {
       if (request.method === "OPTIONS") return new Response(null, { headers: cors });
       if (url.pathname === "/api/status") return json({ ok: true, service: "coc-companion", readOnly: true }, cors);
+      const warMatch = url.pathname.match(/^\/api\/war\/([^/]+)$/);
+      if (warMatch && request.method === "GET") {
+        const clanTag = decodeURIComponent(warMatch[1]);
+        assertTag(clanTag);
+        const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
+        try {
+          return json(analyzeWar(await client.getCurrentWar(clanTag), clanTag), cors);
+        } catch (error) {
+          if (error instanceof CocApiError && (error.code === "accessDenied" || error.code === "invalidIp")) {
+            return json({
+              state: "unavailable",
+              message: "Current war details are unavailable because the clan war endpoint is private or access was denied.",
+              provenance: "unavailable",
+            }, cors);
+          }
+          throw error;
+        }
+      }
+      const clanMatch = url.pathname.match(/^\/api\/clan\/([^/]+)$/);
+      if (clanMatch && request.method === "GET") {
+        const clanTag = decodeURIComponent(clanMatch[1]);
+        assertTag(clanTag);
+        const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
+        const [clan, members] = await Promise.all([client.getClan(clanTag), client.getClanMembers(clanTag)]);
+        return json(analyzeClan(clan, members.items), cors);
+      }
+      const capitalMatch = url.pathname.match(/^\/api\/capital\/([^/]+)$/);
+      if (capitalMatch && request.method === "GET") {
+        const clanTag = decodeURIComponent(capitalMatch[1]);
+        assertTag(clanTag);
+        const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
+        const seasons = await client.getCapitalRaidSeasons(clanTag);
+        return json(analyzeCapital(seasons.items[0]), cors);
+      }
       const baseMatch = url.pathname.match(/^\/api\/base\/([^/]+)$/);
       if (baseMatch && (request.method === "GET" || request.method === "POST")) {
         const tag = decodeURIComponent(baseMatch[1]);

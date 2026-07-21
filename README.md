@@ -50,10 +50,23 @@ The dashboard is a static site in `dashboard/`. Deploy it with Cloudflare Pages 
 - `GET /api/base/:tag` and `POST /api/base/:tag` for estimated builders, resources,
   goals, and manually entered building levels
 - `GET /api/plan/:tag` for account completion and ranked next-best actions
+- `GET /api/war/:clanTag` for current-war stars, destruction, attack usage, and
+  unattacked members
+- `GET /api/clan/:clanTag` for clan/member donation analytics and top donors
+- `GET /api/capital/:clanTag` for the latest Capital Raid summary and top raiders
 - `POST /api/watch/:tag` to register a tag for five-minute polling
 - `DELETE /api/watch/:tag` to stop polling
 - `POST /api/ask` with `{ "tag": "#TAG", "question": "..." }`
 - Scheduled polling every five minutes for tags registered as `watch:<tag>` in KV. The dashboard registers the tag when loading a snapshot.
+
+The Clan & War dashboard section uses the loaded player's clan tag automatically.
+War attack notifications are derived from compact per-member attack fingerprints
+while a war is active. The analytics patterns were inspired by open-source
+community projects including
+[ClashKingBot/clashperk](https://github.com/ClashKingBot/clashperk),
+[clashogram](https://github.com/clashogram), and
+[DonationLogger](https://github.com/ClashKingBot/DonationLogger); no code was
+copied from those projects.
 
 ## Limits and design choices
 

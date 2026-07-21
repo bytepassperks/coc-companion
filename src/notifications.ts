@@ -44,6 +44,7 @@ export async function collectNotifications(
     raidSeasons: raidResponse.items,
     goldPassSeason,
   };
+  snapshot.warFingerprint = currentWarFingerprint(currentWar);
   const key = `state:${normalizeTag(tag)}`;
   const previous = (await kv.get<Snapshot>(key, "json")) ?? undefined;
   const events = diffSnapshots(previous, snapshot, config);
@@ -111,6 +112,21 @@ export function diffSnapshots(
       data: { state: current.currentWar.state },
     });
   }
+  for (const [tag, attack] of Object.entries(current.warFingerprint ?? {})) {
+    if (tag === "__clan") continue;
+    const before = previous.warFingerprint?.[tag] ?? { attacks: 0, stars: 0 };
+    if (attack.attacks > before.attacks || attack.stars > before.stars) {
+      const memberName = current.currentWar?.clan?.members?.find((member) => member.tag === tag)?.name ?? tag;
+      const stars = Math.max(0, attack.stars - before.stars);
+      events.push({
+        id: `war-attack:${tag}:${attack.attacks}:${attack.stars}:${current.player.tag}`,
+        type: "war_attack",
+        createdAt: now,
+        message: `New war attack: ${memberName} earned ${stars} stars.`,
+        data: { member: memberName, stars, attacks: attack.attacks },
+      });
+    }
+  }
   const raid = current.raidSeasons?.[0];
   const oldRaid = previous.raidSeasons?.[0];
   if (raid?.state === "ongoing" && oldRaid?.state !== "ongoing") {
@@ -140,8 +156,21 @@ function snapshotFingerprint(snapshot: Snapshot | undefined): string {
     heroLevels,
     troopLevels,
     currentWarState: snapshot.currentWar?.state,
+    warFingerprint: snapshot.warFingerprint,
     raidState: snapshot.raidSeasons?.[0]?.state,
     goldPassStartTime: snapshot.goldPassSeason?.startTime,
     townHallLevel: snapshot.player.townHallLevel,
   });
+}
+
+export function currentWarFingerprint(war: Snapshot["currentWar"]): Snapshot["warFingerprint"] {
+  if (!war || (war.state !== "preparation" && war.state !== "inWar")) return undefined;
+  const fingerprint: NonNullable<Snapshot["warFingerprint"]> = {};
+  for (const member of war.clan?.members ?? []) {
+    fingerprint[member.tag] = {
+      attacks: member.attacks?.length ?? 0,
+      stars: (member.attacks ?? []).reduce((sum, attack) => sum + attack.stars, 0),
+    };
+  }
+  return fingerprint;
 }

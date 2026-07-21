@@ -12,6 +12,8 @@ select { padding: .7rem; border-radius: 8px; border: 1px solid #445467; backgrou
 button { padding: .7rem 1rem; border: 0; border-radius: 8px; color: #07110b; background: #75e0a1; font-weight: 700; cursor: pointer; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
 .base-form, .action-grid { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.analytics-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.analytics-grid article { background: #202d3b; border: 1px solid #34495e; border-radius: 10px; padding: 1rem; }
 .action { border: 1px solid #34495e; border-radius: 10px; padding: .8rem; background: #202d3b; }
 .action h3 { margin: 0; font-size: 1rem; }
 .action p { margin: .45rem 0; }

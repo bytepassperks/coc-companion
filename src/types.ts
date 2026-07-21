@@ -61,6 +61,9 @@ export interface ClanMember {
   trophies?: number;
   clanRank?: number;
   previousClanRank?: number;
+  townHallLevel?: number;
+  donations?: number;
+  donationsReceived?: number;
 }
 
 export interface Clan {
@@ -77,6 +80,7 @@ export interface Clan {
   warLosses?: number;
   isWarLogPublic?: boolean;
   capitalLeague?: { id: number; name: string };
+  capitalHallLevel?: number;
   capitalPoints?: number;
 }
 
@@ -87,7 +91,10 @@ export interface WarClan {
   attacks?: number;
   stars?: number;
   destructionPercentage?: number;
-  members?: Array<ClanMember & { attacks?: Array<{ stars: number; destructionPercentage: number }> }>;
+  members?: Array<ClanMember & {
+    mapPosition?: number;
+    attacks?: Array<{ stars: number; destructionPercentage: number }>;
+  }>;
 }
 
 export interface CurrentWar {
@@ -114,8 +121,21 @@ export interface RaidSeason {
   endTime?: string;
   attackLog?: unknown[];
   defenseLog?: unknown[];
-  members?: unknown[];
+  totalAttacks?: number;
+  enemyDistrictsDestroyed?: number;
   capitalTotalLoot?: number;
+  defensiveReward?: number;
+  offensiveReward?: number;
+  members?: Array<{
+    tag?: string;
+    name?: string;
+    attackCount?: number;
+    attacks?: number;
+    attackLimit?: number;
+    capitalResourcesLooted?: number;
+    capitalGoldLooted?: number;
+    raidsCompleted?: number;
+  }>;
   raidsCompleted?: number;
 }
 
@@ -139,11 +159,12 @@ export interface Snapshot {
   currentWar?: CurrentWar;
   raidSeasons?: RaidSeason[];
   goldPassSeason?: GoldPassSeason;
+  warFingerprint?: Record<string, { attacks: number; stars: number }>;
 }
 
 export interface NotificationEvent {
   id: string;
-  type: "upgrade_completed" | "war_window_open" | "capital_raid_active" | "th_upgraded";
+  type: "upgrade_completed" | "war_window_open" | "capital_raid_active" | "th_upgraded" | "war_attack";
   createdAt: string;
   message: string;
   data?: Record<string, string | number>;

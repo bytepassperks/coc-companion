@@ -83,4 +83,23 @@ describe("notifications diffing", () => {
     });
     expect(events.map(event => event.type)).toEqual(["upgrade_completed", "war_window_open"]);
   });
+
+  it("emits a war attack event when a member attack count changes", () => {
+    const previous: Snapshot = {
+      ...base,
+      currentWar: { state: "inWar", clan: { tag: "#CLAN", name: "Clan", members: [{ tag: "#A", name: "Attacker", attacks: [] }] } },
+      warFingerprint: { "#A": { attacks: 0, stars: 0 } },
+    };
+    const current: Snapshot = {
+      ...base,
+      currentWar: { state: "inWar", clan: { tag: "#CLAN", name: "Clan", members: [{ tag: "#A", name: "Attacker", attacks: [{ stars: 2, destructionPercentage: 80 }] }] } },
+      warFingerprint: { "#A": { attacks: 1, stars: 2 } },
+    };
+    const events = diffSnapshots(previous, current, {
+      shield_expiring_lead_minutes: 60,
+      clan_games_ending_lead_hours: 6,
+      feed_max_items: 100,
+    });
+    expect(events.some((event) => event.type === "war_attack" && event.message.includes("earned 2 stars"))).toBe(true);
+  });
 });
