@@ -27,6 +27,7 @@
           <div class="hero-topline"><span class="ribbon">TODAY'S MOVE</span><span id="todayWarChip" class="war-chip">War status unavailable</span></div>
           <div id="todayNextUpgrade" class="next-upgrade large skeleton-block"></div>
           <div class="goal-row"><span class="label">Quick goal</span><button class="goal-chip" data-goal="war">⚔ War</button><button class="goal-chip" data-goal="farm">⛏ Farm</button><button class="goal-chip" data-goal="trophy">🏆 Trophy</button><button class="goal-chip" data-goal="balanced">◈ Balanced</button></div>
+          <small id="gameDataMeta" class="game-data-meta">Game data loading…</small>
         </div>
         <div class="dashboard-grid">
           <article class="wood-card"><div class="section-banner">Recent alerts</div><ul id="todayFeed" class="feed-list"><li class="muted">Load an account to see alerts.</li></ul><div class="section-banner">Recommendations</div><ol id="recommendations"><li class="muted">Load an account to see recommendations.</li></ol></article>
@@ -34,7 +35,7 @@
         </div>
       </section>
       <section id="plan" class="tab-panel">
-        <div class="wood-card"><div class="section-banner">Ranked battle plan</div><h2 id="planHeadline"></h2><pre id="planText"></pre><div id="planNextUpgrade"></div><details id="completedActions" class="data-details hidden"><summary>Completed actions</summary><div id="completedList"></div></details><div id="actions" class="action-grid"></div><div id="completion"></div></div>
+        <div class="wood-card"><div class="section-banner">Ranked battle plan</div><h2 id="planHeadline"></h2><pre id="planText"></pre><div id="planEquipment"></div><div id="planNextUpgrade"></div><details id="completedActions" class="data-details hidden"><summary>Completed actions</summary><div id="completedList"></div></details><div id="actions" class="action-grid"></div><div id="completion"></div></div>
       </section>
       <section id="clan" class="tab-panel">
         <div class="wood-card"><div class="section-banner">Clan &amp; War</div><div class="analytics-grid"><article><h2>War status</h2><div id="warStats"></div></article><article><h2>Clan stats</h2><div id="clanStats"></div></article><article><h2>Capital raid</h2><div id="capitalStats"></div></article></div></div>
@@ -52,7 +53,7 @@
         <div class="wood-card"><div class="section-banner">Your base · manual</div><p class="muted">The official API does not expose builders, resources, or building levels. Enter estimates to improve your ranking.</p><form id="baseForm" class="settings-grid"><label>Builders total<input id="buildersTotal" type="number" min="0"></label><label>Builders free<input id="buildersFree" type="number" min="0"></label><label class="check"><input id="labBusy" type="checkbox"> Laboratory busy</label><label>Gold<input id="gold" type="number" min="0"></label><label>Elixir<input id="elixir" type="number" min="0"></label><label>Dark elixir<input id="darkElixir" type="number" min="0"></label><label>Goal<select id="goal"><option value="balanced">Balanced</option><option value="war">War</option><option value="farm">Farm</option><option value="trophy">Trophy</option></select></label><button class="gold-button">Save base</button></form></div>
         <div class="wood-card"><div class="section-banner">Ask</div><form id="askForm" class="ask-form"><input id="question" placeholder="What should I prioritize next?" required><button class="gold-button">Ask</button></form><pre id="answer"></pre></div>
       </section>
-      <footer>Public player tag only. No Supercell credentials or API keys are used in this dashboard. All in-game actions remain manual.</footer>
+      <footer>Public player tag only. No Supercell credentials or API keys are used in this dashboard. All in-game actions remain manual. <span id="footerGameData">Game data loading…</span></footer>
     </main>
     <script src="app.js"></script>
   </body>

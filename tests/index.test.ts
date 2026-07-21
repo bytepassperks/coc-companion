@@ -65,6 +65,7 @@ describe("watch routes", () => {
       tag: "#2PYC", name: "Test", townHallLevel: 7, warPreference: "in",
       heroes: [{ name: "Barbarian King", level: 1, maxLevel: 110 }],
       troops: [{ name: "Barbarian", level: 1, maxLevel: 13, village: "home" }],
+      heroEquipment: [{ name: "Iron Fist", level: 4, maxLevel: 9 }],
       spells: [],
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
     const response = await worker.fetch(new Request("https://example.test/api/plan/%232PYC"), testEnv as never);
@@ -82,6 +83,9 @@ describe("watch routes", () => {
       name: "Barbarian King",
       level: 1,
       thCapLevel: expect.any(Number),
+    }));
+    expect(body.accountDetails).toEqual(expect.objectContaining({
+      equipment: [{ name: "Iron Fist", level: 4, maxLevel: 9 }],
     }));
     vi.unstubAllGlobals();
   });

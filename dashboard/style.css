@@ -90,6 +90,9 @@ tr.non-maxed td:first-child { color: #75e0a1; font-weight: 900; }
 .profile-heading { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .heroes { display: flex; flex-wrap: wrap; gap: .5rem; }
 .heroes span { padding: .4rem .6rem; border: 2px solid #765621; border-radius: 9px; background: #193d37; color: #ffe286; }
+.equipment-compact { display: block; max-width: 32rem; color: #e1aadf; font-size: .78rem; }
+.equipment-context { padding: .55rem .7rem; border-left: 3px solid var(--elixir); color: #f0c7ec; }
+.game-data-meta { display: block; margin-top: .8rem; color: #d7bd70; }
 .feed-list { padding-left: 1.2rem; }
 .ask-form { display: flex; gap: .6rem; }
 .ask-form input { flex: 1; }

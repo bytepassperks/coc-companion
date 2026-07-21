@@ -1,6 +1,5 @@
 import upgradeConfig from "../config/upgrade-priorities.json";
 import notificationConfig from "../config/notifications.json";
-import gameCatalog from "../config/game-data.json";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { CocClient, CocApiError, type CacheLayer } from "./cocClient";
 import { answerQuestion, generatePlan, DEFAULT_AI_MODEL } from "./ai";
@@ -15,6 +14,7 @@ import type { Env } from "./workerTypes";
 import type { BaseState, GameCatalog, Player, Snapshot } from "./types";
 import { actionKey } from "./checklist";
 import { authenticateUser, bearerToken, createSession, destroySession, registerUser, sessionEmail } from "./auth";
+import { loadCatalog } from "./catalogLoader";
 
 class ValidationError extends Error {}
 
@@ -133,7 +133,8 @@ export default {
         const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
         const player = await client.getPlayer(tag);
         if (match[1] === "player") return json(player, cors);
-        return json(getRecommendations(player, upgradeConfig as unknown as Parameters<typeof getRecommendations>[1]), cors);
+        const loaded = await loadCatalog(env.STATE);
+        return json(getRecommendations(player, upgradeConfig as unknown as Parameters<typeof getRecommendations>[1], loaded.catalog), cors);
       }
       if (url.pathname === "/api/ask" && request.method === "POST") {
         const body = await parseJson(request) as { tag?: string; question?: string } | null;
@@ -143,7 +144,8 @@ export default {
         const tag = body.tag;
         const snapshot = await env.STATE.get(`state:${tag.replace(/^#/, "")}`, "json") as import("./types").Snapshot | null;
         const player = snapshot?.player ?? await client.getPlayer(tag);
-        const recommendations = getRecommendations(player, upgradeConfig as unknown as Parameters<typeof getRecommendations>[1]);
+        const loaded = await loadCatalog(env.STATE);
+        const recommendations = getRecommendations(player, upgradeConfig as unknown as Parameters<typeof getRecommendations>[1], loaded.catalog);
         const response = await answerQuestion(env.AI, body.question, snapshot ?? { fetchedAt: new Date().toISOString(), player }, recommendations, env.STATE, Number(env.AI_DAILY_CAP ?? 8000), env.AI_MODEL ?? DEFAULT_AI_MODEL);
         return json({ answer: response }, cors);
       }
@@ -157,9 +159,10 @@ export default {
         const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
         const snapshot = await getSnapshot(tag, client, env.STATE);
         const base = await env.STATE.get(`base:${normalized}`, "json") as BaseState | null;
-        const analysis = analyzeAccount(snapshot.player, gameCatalog as unknown as GameCatalog);
+        const loaded = await loadCatalog(env.STATE);
+        const analysis = analyzeAccount(snapshot.player, loaded.catalog);
         const done = (await env.STATE.get<string[]>(`done:${normalized}`, "json")) ?? [];
-        const actions = getNextBestActions(snapshot.player, gameCatalog as unknown as GameCatalog, analysis, base ?? undefined)
+        const actions = getNextBestActions(snapshot.player, loaded.catalog, analysis, base ?? undefined)
           .map((action) => ({ ...action, key: actionKey(action) }))
           .filter((action) => !done.includes(action.key));
         const ai = await generatePlan(env.AI, {
@@ -179,7 +182,11 @@ export default {
           accountDetails: {
             categories: analysis.categories,
             achievements: analysis.achievements,
+            equipment: snapshot.player.heroEquipment?.length
+              ? snapshot.player.heroEquipment
+              : snapshot.player.heroes?.flatMap((hero) => hero.equipment ?? []) ?? [],
           },
+          catalogMeta: loaded.meta,
           completedKeys: done,
           generatedAt: new Date().toISOString(),
           aiUsed: ai.used,

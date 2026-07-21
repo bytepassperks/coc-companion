@@ -62,6 +62,7 @@ function category(
   payload: Array<{ name: string; level: number; maxLevel?: number }> | undefined,
   townHall: number,
   requirements: Record<string, { townHall: number; building: string }>,
+  excludedNames = new Set<string>(),
 ): AccountCategory {
   const byName = new Map((payload ?? []).map((item) => [item.name, item]));
   const items = entities.map((entity): AccountItem => {
@@ -83,6 +84,20 @@ function category(
       nextUpgrade: observed ? next(entity, level, cap) : null,
     };
   });
+  const known = new Set(entities.map((entity) => entity.name));
+  for (const observed of payload ?? []) {
+    if (known.has(observed.name) || excludedNames.has(observed.name)) continue;
+    items.push({
+      name: observed.name,
+      level: observed.level,
+      thCapLevel: 0,
+      remainingLevels: 0,
+      provenance: "observed (catalog pending upstream update)",
+      provenanceNote: "catalog pending upstream update",
+      apiMaxLevel: observed.maxLevel,
+      nextUpgrade: null,
+    });
+  }
   const total = items.reduce((sum, item) => sum + item.thCapLevel, 0);
   const complete = items.reduce((sum, item) => sum + Math.min(item.level, item.thCapLevel), 0);
   return {
@@ -101,24 +116,27 @@ function achievementHighlights(player: Player) {
 
 export function analyzeAccount(player: Player, catalog: GameCatalog): AccountAnalysis {
   const th = player.townHallLevel;
-  const heroes = category(active(catalog.heroes.filter((item) => item.village === "home")), player.heroes, th, unlockMap.heroes);
+  const heroes = category(active(catalog.heroes.filter((item) => item.village === "home")), player.heroes, th, unlockMap.heroes, new Set(catalog.heroes.filter(isTemporary).map((item) => item.name)));
   const troops = category(
     active(catalog.troops.filter((item) => item.village === "home" && !isSuperTroopName(item.name))),
     player.troops?.filter((item) => item.village !== "builderBase" && !item.superTroopIsActive && !isSuperTroopName(item.name)),
     th,
     unlockMap.troops,
+    new Set(catalog.troops.filter(isTemporary).map((item) => item.name)),
   );
   const spells = category(
     active(catalog.spells.filter((item) => item.village === "home")),
     player.spells,
     th,
     unlockMap.spells,
+    new Set(catalog.spells.filter(isTemporary).map((item) => item.name)),
   );
   const builderBase = category(
     active(catalog.troops.filter((item) => item.village === "builderBase" && !isSuperTroopName(item.name))),
     player.troops?.filter((item) => item.village === "builderBase" && !item.superTroopIsActive && !isSuperTroopName(item.name)),
     player.builderHallLevel ?? 0,
     {},
+    new Set(catalog.troops.filter(isTemporary).map((item) => item.name)),
   );
   const categories = { heroes, troops, spells, builderBase };
   const values = Object.values(categories);

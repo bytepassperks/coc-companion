@@ -40,3 +40,7 @@
 - Excluded temporary Super Troop boosts from account progression and completion
   analysis, clarified current Hero Hall Town Hall caps, and normalized malformed
   request/tag validation to HTTP 400 responses.
+- Added daily auto-refreshing catalog loading from coc.py master with KV caching
+  and bundled fallback, TH-capped recommendation text, graceful handling for
+  payload entities not yet present in the catalog, and hero-equipment display
+  in account and plan contexts.

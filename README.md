@@ -87,6 +87,12 @@ copied from those projects.
   session tokens are stored in KV with expiration. Passwords are never stored
   in plaintext and the account does not grant access to the game.
 - Account analysis compares levels against Town Hall caps from the catalog and reports unlockable entities, achievement highlights, category completion, and overall completion. API `maxLevel` is treated as an API/global fallback, not a Town Hall cap.
+- Game data is refreshed automatically at runtime from the coc.py master
+  `static_data.json` source. The Worker checks `catalog:v1` KV first, fetches
+  and trims the upstream source with a 10-second timeout when the cache is
+  absent, stores it for 24 hours, and falls back to the bundled catalog if
+  upstream is unavailable. Plans expose `catalogMeta` with the source,
+  fetch date, and live/cached/bundled mode.
 - Live player payload checks for TH7 (`#R2RVUQG89`) and TH16 (`#2PVR0VL89`)
   contained no separate `pets` field or pet entries in `troops`; the dashboard
   therefore does not render a speculative Pets table. Super Troops are likewise

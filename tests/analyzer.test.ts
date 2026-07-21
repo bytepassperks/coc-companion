@@ -85,4 +85,24 @@ describe("account analyzer", () => {
     expect(result.categories.troops.items.some((item) => item.name.startsWith("Super ") || item.name === "Sneaky Goblin")).toBe(false);
     expect(result.categories.troops.completion).toBe(analyzeAccount(player, fullCatalog as unknown as GameCatalog).categories.troops.completion);
   });
+
+  it("keeps observed entities that are missing from the catalog", () => {
+    const result = analyzeAccount({
+      tag: "#2ABC",
+      name: "New content",
+      townHallLevel: 16,
+      heroes: [{ name: "Dragon Duke", level: 1, maxLevel: 10 }],
+      troops: [],
+      spells: [],
+    }, fullCatalog as unknown as GameCatalog);
+    expect(result.categories.heroes.items).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: "Dragon Duke",
+        level: 1,
+        apiMaxLevel: 10,
+        provenance: "observed (catalog pending upstream update)",
+        provenanceNote: "catalog pending upstream update",
+      }),
+    ]));
+  });
 });

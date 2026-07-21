@@ -192,7 +192,7 @@ export interface Recommendation {
   lastUpdated: string;
 }
 
-export type Provenance = "observed" | "calculated" | "estimated" | "unavailable";
+export type Provenance = "observed" | "observed (catalog pending upstream update)" | "calculated" | "estimated" | "unavailable";
 
 export interface CatalogLevel {
   level: number;
@@ -237,6 +237,7 @@ export interface AccountItem {
   thCapLevel: number;
   remainingLevels: number;
   provenance: Provenance;
+  provenanceNote?: string;
   maxLevelSource?: "api";
   apiMaxLevel?: number;
   nextUpgrade: {
