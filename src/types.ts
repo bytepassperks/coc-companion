@@ -291,6 +291,7 @@ export interface BaseState {
   warArmy?: string[];
   homeArmy?: string[];
   sameArmy?: boolean;
+  heroLoadouts?: Record<string, { equipment: string[]; pet?: string }>;
   buildingLevels?: Record<string, number[]>;
   updatedAt: string;
 }

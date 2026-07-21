@@ -225,7 +225,7 @@ export default {
         const ore = base && (base.oreShiny !== undefined || base.oreGlowy !== undefined || base.oreStarry !== undefined)
           ? { shiny: base.oreShiny, glowy: base.oreGlowy, starry: base.oreStarry }
           : undefined;
-        const plan = adviseEquipment(player, goal, ore, base?.heroLineup ?? []);
+        const plan = adviseEquipment(player, goal, ore, base?.heroLineup ?? [], base?.heroLoadouts ?? {});
         return json({ goal, ore, advice: plan.equipment, pets: plan.pets, unknownEquipment: plan.unknownEquipment, provenance: "equipment-meta v1 dated 2026-07-21" }, cors);
       }
       const baseMatch = url.pathname.match(/^\/api\/base\/([^/]+)$/);
@@ -296,7 +296,10 @@ export default {
         const timers = await processTimers(tag, env.STATE);
         const builderCount = base?.buildersTotal ?? 0;
         const buildersBusy = activeTimers(timers).filter((timer) => timer.kind === "builder").length >= builderCount && builderCount > 0;
-        const rankedActions = getNextBestActions(snapshot.player, loaded.catalog, analysis, base ?? undefined, { buildersBusy })
+        const rankedActions = getNextBestActions(snapshot.player, loaded.catalog, analysis, base ?? undefined, {
+          buildersBusy,
+          activeLabels: activeTimers(timers).map((timer) => timer.label),
+        })
           .map((action) => ({ ...action, key: actionKey(action) }))
           .filter((action) => !done.includes(action.key));
         const activeActions = rankedActions.filter((action) => !skipped.includes(action.key));
@@ -331,7 +334,7 @@ export default {
           rushScore: calculateRushScore(snapshot.player, analysis, loaded.catalog),
           equipmentAdvice: adviseEquipment(snapshot.player, base?.goal ?? "balanced", base && (base.oreShiny !== undefined || base.oreGlowy !== undefined || base.oreStarry !== undefined)
             ? { shiny: base.oreShiny, glowy: base.oreGlowy, starry: base.oreStarry }
-            : undefined, base?.heroLineup ?? []),
+            : undefined, base?.heroLineup ?? [], base?.heroLoadouts ?? {}),
           catalogMeta: loaded.meta,
           aiReview: ai.review,
           completedKeys: done,
@@ -459,6 +462,20 @@ function validateBase(input: unknown): BaseState {
   const warArmy = list(body.warArmy, "warArmy");
   const homeArmy = list(body.homeArmy, "homeArmy");
   const sameArmy = body.sameArmy === undefined ? false : Boolean(body.sameArmy);
+  let heroLoadouts: BaseState["heroLoadouts"];
+  if (body.heroLoadouts !== undefined) {
+    if (!body.heroLoadouts || typeof body.heroLoadouts !== "object") throw new ValidationError("heroLoadouts must be an object");
+    heroLoadouts = {};
+    for (const [hero, raw] of Object.entries(body.heroLoadouts as Record<string, unknown>)) {
+      if (!raw || typeof raw !== "object") throw new ValidationError("Each hero loadout must be an object");
+      const value = raw as Record<string, unknown>;
+      if (!Array.isArray(value.equipment) || value.equipment.length > 2 || value.equipment.some((item) => typeof item !== "string" || !item.trim())) {
+        throw new ValidationError("Each hero loadout can contain up to 2 equipment names");
+      }
+      if (value.pet !== undefined && (typeof value.pet !== "string" || !value.pet.trim())) throw new ValidationError("Loadout pet must be a name");
+      heroLoadouts[hero.trim()] = { equipment: [...new Set(value.equipment.map((item) => item.trim()))], pet: value.pet === undefined ? undefined : value.pet.trim() };
+    }
+  }
   return {
     buildersTotal: number(body.buildersTotal, "buildersTotal"),
     buildersFree: number(body.buildersFree, "buildersFree"),
@@ -472,6 +489,7 @@ function validateBase(input: unknown): BaseState {
     warArmy,
     homeArmy: sameArmy ? warArmy : homeArmy,
     sameArmy,
+    heroLoadouts,
     buildingLevels,
     updatedAt: new Date().toISOString(),
   };

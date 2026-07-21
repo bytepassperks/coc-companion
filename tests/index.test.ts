@@ -72,6 +72,16 @@ describe("watch routes", () => {
       method: "POST", body: JSON.stringify({ buildersFree: -1 }), headers: { "Content-Type": "application/json", Authorization: "Bearer test-token" },
     }), testEnv as never);
     expect(invalid.status).toBe(400);
+    const loadout = await worker.fetch(new Request("https://example.test/api/base/%232PYC", {
+      method: "POST",
+      body: JSON.stringify({
+        heroLoadouts: { "Archer Queen": { equipment: ["Giant Arrow", "Magic Mirror"], pet: "Unicorn" } },
+        warArmy: ["Dragon", "Freeze Spell"], homeArmy: ["Barbarian"], sameArmy: false,
+      }),
+      headers: { "Content-Type": "application/json", Authorization: "Bearer test-token" },
+    }), testEnv as never);
+    expect(loadout.status).toBe(200);
+    expect(testEnv.STATE.put).toHaveBeenCalledWith("base:2PYC", expect.stringContaining('"heroLoadouts"'));
   });
 
   it("returns a rules-only plan when Workers AI is absent", async () => {

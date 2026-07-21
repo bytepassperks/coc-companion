@@ -54,6 +54,51 @@ describe("next best action", () => {
     expect(cheap?.notes).toContain("In your war army.");
   });
 
+  it("keeps the selected TH16 army research above non-army lab items", () => {
+    const th16Catalog: GameCatalog = {
+      ...catalog,
+      troops: ["Baby Dragon", "Valkyrie", "Minion", "Battle Blimp"].map((name, index) => ({
+        name, village: "home", levels: [
+          { level: 1, required_townhall: 10, upgrade_cost: 1000 + index * 100, upgrade_time: 1000 },
+          { level: 2, required_townhall: 10, upgrade_cost: 1200 + index * 100, upgrade_time: 1000 },
+          { level: 3, required_townhall: 16, upgrade_cost: 1400 + index * 100, upgrade_time: 1000 },
+        ],
+      })),
+      spells: [{ name: "Revive Spell", village: "home", levels: [
+        { level: 1, required_townhall: 10, upgrade_cost: 1000, upgrade_time: 1000 },
+        { level: 2, required_townhall: 16, upgrade_cost: 1200, upgrade_time: 1000 },
+      ] }],
+    };
+    const th16Player: Player = {
+      tag: "#2PVR0VL89", name: "TH16", townHallLevel: 16,
+      troops: [
+        { name: "Baby Dragon", level: 1, village: "home" },
+        { name: "Valkyrie", level: 1, village: "home" },
+        { name: "Minion", level: 1, village: "home" },
+        { name: "Battle Blimp", level: 1, village: "home" },
+      ],
+      spells: [{ name: "Revive Spell", level: 1 }],
+    };
+    const actions = getNextBestActions(th16Player, th16Catalog, analyzeAccount(th16Player, th16Catalog), {
+      goal: "war", warArmy: ["Dragon", "Balloon", "Baby Dragon", "Lightning Spell", "Revive Spell", "Freeze Spell", "Battle Blimp"], updatedAt: "",
+    });
+    expect(actions.findIndex((item) => item.subject === "Baby Dragon")).toBeGreaterThanOrEqual(0);
+    expect(actions.find((item) => item.subject === "Baby Dragon")?.notes).toContain("In your war army.");
+    expect(actions.findIndex((item) => item.subject === "Baby Dragon")).toBeLessThan(actions.findIndex((item) => item.subject === "Valkyrie"));
+  });
+
+  it("ranks a selected hero with army research while deprioritizing active timers", () => {
+    const analysis = analyzeAccount(player, catalog);
+    const actions = getNextBestActions(player, catalog, analysis, {
+      goal: "war", warArmy: ["Cheap"], heroLineup: ["King"], buildersFree: 1, updatedAt: "",
+    }, { buildersBusy: false, activeLabels: ["Cheap"] });
+    const king = actions.find((item) => item.subject === "King");
+    const cheap = actions.find((item) => item.subject === "Cheap");
+    expect(king?.notes).toContain("In your hero lineup.");
+    expect(cheap?.notes).toContain("Already in progress (timer).");
+    expect(actions.find((item) => item.notes.includes("Already in progress (timer)."))).toBeDefined();
+  });
+
   it("caps unlock actions and includes the prerequisite building", () => {
     const analysis = analyzeAccount(player, catalog);
     analysis.unlockable = Array.from({ length: 8 }, (_, index) => ({

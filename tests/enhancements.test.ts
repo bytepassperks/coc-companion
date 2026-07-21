@@ -91,4 +91,23 @@ describe("equipment advisor ore affordability", () => {
     expect(plan.pets[0].name).toBe("Spirit Fox");
     expect(plan.pets[0].priority).toContain("laboratory time");
   });
+
+  it("uses a user loadout and preserves the meta pair as an alternative", () => {
+    const player: Player = {
+      tag: "#2PYC", name: "Loadout", townHallLevel: 16,
+      heroes: [{ name: "Archer Queen", level: 80 }],
+      heroEquipment: [
+        { name: "Giant Arrow", level: 16 },
+        { name: "Magic Mirror", level: 16 },
+        { name: "Frozen Arrow", level: 10 },
+      ],
+      pets: [{ name: "Unicorn", level: 10, maxLevel: 15 }],
+    };
+    const plan = adviseEquipment(player, "war", undefined, ["Archer Queen"], {
+      "Archer Queen": { equipment: ["Giant Arrow", "Magic Mirror"], pet: "Unicorn" },
+    });
+    expect(plan.equipment[0].recommended).toEqual(["Giant Arrow", "Magic Mirror"]);
+    expect(plan.equipment[0].metaSuggestion).toEqual(["Frozen Arrow", "Healer Puppet"]);
+    expect(plan.pets[0].selected).toBe(true);
+  });
 });

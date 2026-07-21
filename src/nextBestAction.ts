@@ -15,10 +15,12 @@ type Candidate = NextBestAction & {
   availability?: number;
   gate?: number;
   confidenceFactor?: number;
+  prioritySelected?: boolean;
 };
 
 export interface TimerContext {
   buildersBusy: boolean;
+  activeLabels?: string[];
 }
 
 const goalOf = (base?: BaseState) => base?.goal ?? "balanced";
@@ -65,9 +67,24 @@ export function getNextBestActions(
     if (goal === "farm" && time <= 86400) strategic *= 1.25;
     if (goal === "farm" && cost <= 100_000) strategic *= 1.5;
     const selectedArmy = base?.sameArmy ? base.warArmy : (goal === "war" ? base?.warArmy : base?.homeArmy);
-    if (!builder && selectedArmy?.includes(subject)) {
+    const normalizedSubject = subject.trim().toLowerCase();
+    const armySelected = !builder && Boolean(selectedArmy?.some((unit) => unit.trim().toLowerCase() === normalizedSubject));
+    const lineupSelected = category === "hero upgrade" && Boolean(base?.heroLineup?.some((hero) => hero.trim().toLowerCase() === normalizedSubject));
+    const prioritySelected = armySelected || lineupSelected;
+    const activeTimer = Boolean(timerContext?.activeLabels?.some((label) => {
+      const normalizedLabel = label.trim().toLowerCase();
+      return normalizedLabel && (normalizedSubject.includes(normalizedLabel) || normalizedLabel.includes(normalizedSubject));
+    }));
+    if (armySelected) {
       strategic *= 1.5;
       notes.push(`In your ${goal === "war" ? "war" : "home"} army.`);
+    }
+    if (lineupSelected) {
+      strategic *= 1.5;
+      notes.push("In your hero lineup.");
+    }
+    if (activeTimer) {
+      notes.push("Already in progress (timer).");
     }
     candidates.push({
       action: `Upgrade ${subject}`,
@@ -86,9 +103,10 @@ export function getNextBestActions(
       rawCost: cost,
       rawTime: time,
       strategic,
-      availability: affordable === false ? 0.65 : 1,
       gate: builder && (base?.buildersFree === 0 || timerContext?.buildersBusy) ? 0.3 : !builder && base?.labBusy ? 0.3 : 1,
       confidenceFactor: 0.9,
+      prioritySelected,
+      availability: activeTimer ? 0.35 : affordable === false ? 0.65 : 1,
     });
   };
 
@@ -168,12 +186,14 @@ export function getNextBestActions(
     candidate.score = 0.75 / (1.15 * 1.15);
   }
 
-  const rankedUpgrades = upgrades.sort((a, b) => b.score - a.score);
+  const rankedUpgrades = upgrades.sort((a, b) => Number(Boolean(b.prioritySelected)) - Number(Boolean(a.prioritySelected)) || b.score - a.score);
+  const priorityUpgrades = rankedUpgrades.filter((candidate) => candidate.prioritySelected);
+  const otherUpgrades = rankedUpgrades.filter((candidate) => !candidate.prioritySelected);
   const unlocks = candidates.filter((candidate) => candidate.kind === "unlock");
   const hints = candidates.filter((candidate) => candidate.kind === "hint");
-  return [...rankedUpgrades.slice(0, 3), ...unlocks, ...rankedUpgrades.slice(3), ...hints]
+  return [...priorityUpgrades, ...otherUpgrades.slice(0, 3), ...unlocks, ...otherUpgrades.slice(3), ...hints]
     .slice(0, 20)
-    .map(({ kind: _kind, rawCost: _cost, rawTime: _time, strategic: _strategic, availability: _availability, gate: _gate, confidenceFactor: _confidence, ...action }) => action);
+    .map(({ kind: _kind, rawCost: _cost, rawTime: _time, strategic: _strategic, availability: _availability, gate: _gate, confidenceFactor: _confidence, prioritySelected: _prioritySelected, ...action }) => action);
 }
 
 function upgrade(item: { nextUpgrade: Upgrade | null }) {
