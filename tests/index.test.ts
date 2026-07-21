@@ -14,6 +14,18 @@ function env() {
 }
 
 describe("watch routes", () => {
+  it("returns 400 for invalid tags and malformed JSON", async () => {
+    const testEnv = env();
+    const invalidTag = await worker.fetch(new Request("https://example.test/api/player/not-a-tag"), testEnv as never);
+    expect(invalidTag.status).toBe(400);
+    const ask = await worker.fetch(new Request("https://example.test/api/ask", { method: "POST" }), testEnv as never);
+    expect(ask.status).toBe(400);
+    const base = await worker.fetch(new Request("https://example.test/api/base/%232PYC", {
+      method: "POST", headers: { Authorization: "Bearer test-token" }, body: "{",
+    }), testEnv as never);
+    expect(base.status).toBe(400);
+  });
+
   it("rejects protected writes without a valid session", async () => {
     const testEnv = env();
     testEnv.STATE.get.mockResolvedValue(null);
@@ -44,7 +56,7 @@ describe("watch routes", () => {
     const invalid = await worker.fetch(new Request("https://example.test/api/base/%232PYC", {
       method: "POST", body: JSON.stringify({ buildersFree: -1 }), headers: { "Content-Type": "application/json", Authorization: "Bearer test-token" },
     }), testEnv as never);
-    expect(invalid.status).toBe(500);
+    expect(invalid.status).toBe(400);
   });
 
   it("returns a rules-only plan when Workers AI is absent", async () => {

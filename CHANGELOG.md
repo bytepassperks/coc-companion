@@ -2,6 +2,13 @@
 
 ## 2026-07-21
 
+- Added a hand-crafted Clash of Clans visual dashboard overhaul with a
+  battlefield palette, wood/parchment cards, game-style buttons, resource
+  accents, responsive layouts, and tabbed Today, Plan, Clan & War, Account,
+  and Settings views.
+- Added a simplified Today flow with a single next move, war chip, one-tap goal
+  switching, auto-load on revisit, loading skeletons, and friendly error
+  toasts. No external images, frameworks, fonts, or CDNs were added.
 - Initial CoC Companion project.
 - Clash of Clans API v1 read-only client and typed snapshots.
 - Research basis: `/home/ubuntu/research/infra-and-tooling.md` and `/home/ubuntu/research/strategy-meta.md`.
@@ -30,3 +37,6 @@
 - Added compact per-member war-attack diff notifications while wars are active.
   Ideas were informed by ClashKingBot/clashperk, clashogram, and DonationLogger;
   no source code was copied.
+- Excluded temporary Super Troop boosts from account progression and completion
+  analysis, clarified current Hero Hall Town Hall caps, and normalized malformed
+  request/tag validation to HTTP 400 responses.

@@ -16,6 +16,7 @@ export interface Troop {
   level: number;
   maxLevel?: number;
   village?: "home" | "builderBase";
+  superTroopIsActive?: boolean;
 }
 
 export interface Spell {

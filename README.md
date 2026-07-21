@@ -87,6 +87,10 @@ copied from those projects.
   session tokens are stored in KV with expiration. Passwords are never stored
   in plaintext and the account does not grant access to the game.
 - Account analysis compares levels against Town Hall caps from the catalog and reports unlockable entities, achievement highlights, category completion, and overall completion. API `maxLevel` is treated as an API/global fallback, not a Town Hall cap.
+- Live player payload checks for TH7 (`#R2RVUQG89`) and TH16 (`#2PVR0VL89`)
+  contained no separate `pets` field or pet entries in `troops`; the dashboard
+  therefore does not render a speculative Pets table. Super Troops are likewise
+  temporary boosts and are excluded from progression analysis and completion.
 - Seasonal/temporary zero-cost catalog entries are excluded from completion and
   unlock analysis. Unlock cards are capped and include their prerequisite
   Barracks, Dark Barracks, Laboratory, or Hero Hall.

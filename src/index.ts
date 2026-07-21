@@ -16,6 +16,8 @@ import type { BaseState, GameCatalog, Player, Snapshot } from "./types";
 import { actionKey } from "./checklist";
 import { authenticateUser, bearerToken, createSession, destroySession, registerUser, sessionEmail } from "./auth";
 
+class ValidationError extends Error {}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -24,16 +26,16 @@ export default {
       if (request.method === "OPTIONS") return new Response(null, { headers: cors });
       if (url.pathname === "/api/status") return json({ ok: true, service: "coc-companion", readOnly: true }, cors);
       if (url.pathname === "/api/auth/register" && request.method === "POST") {
-        const body = await request.json() as { email?: string; password?: string };
-        validateCredentials(body.email, body.password);
-        await registerUser(env.STATE, body.email!, body.password!);
-        return json({ registered: true, email: body.email!.trim().toLowerCase() }, cors, 201);
+        const body = await parseJson(request) as { email?: string; password?: string };
+        validateCredentials(body?.email, body?.password);
+        await registerUser(env.STATE, body?.email!, body?.password!);
+        return json({ registered: true, email: body?.email!.trim().toLowerCase() }, cors, 201);
       }
       if (url.pathname === "/api/auth/login" && request.method === "POST") {
-        const body = await request.json() as { email?: string; password?: string };
-        validateCredentials(body.email, body.password);
-        if (!await authenticateUser(env.STATE, body.email!, body.password!)) return json({ error: "Invalid email or password" }, cors, 401);
-        return json({ token: await createSession(env.STATE, body.email!) }, cors);
+        const body = await parseJson(request) as { email?: string; password?: string };
+        validateCredentials(body?.email, body?.password);
+        if (!await authenticateUser(env.STATE, body?.email!, body?.password!)) return json({ error: "Invalid email or password" }, cors, 401);
+        return json({ token: await createSession(env.STATE, body?.email!) }, cors);
       }
       if (url.pathname === "/api/auth/logout" && request.method === "POST") {
         const token = bearerToken(request);
@@ -52,8 +54,8 @@ export default {
         const tag = decodeURIComponent(doneMatch[1]);
         assertTag(tag);
         const normalized = tag.replace(/^#/, "");
-        const body = await request.json() as { key?: string };
-        if (!body.key || typeof body.key !== "string") return json({ error: "key is required" }, cors, 400);
+        const body = await parseJson(request) as { key?: string } | null;
+        if (!body || typeof body.key !== "string" || !body.key) return json({ error: "key is required" }, cors, 400);
         const key = `done:${normalized}`;
         const current = (await env.STATE.get<string[]>(key, "json")) ?? [];
         const next = request.method === "POST"
@@ -104,7 +106,7 @@ export default {
         const key = `base:${tag.replace(/^#/, "")}`;
         if (request.method === "GET") return json((await env.STATE.get(key, "json")) ?? null, cors);
         if (!await requireSession(request, env)) return unauthorized(cors);
-        const body = await request.json();
+        const body = await parseJson(request);
         const base = validateBase(body);
         await env.STATE.put(key, JSON.stringify(base));
         await env.STATE.delete(`plan:${tag.replace(/^#/, "")}`);
@@ -134,8 +136,8 @@ export default {
         return json(getRecommendations(player, upgradeConfig as unknown as Parameters<typeof getRecommendations>[1]), cors);
       }
       if (url.pathname === "/api/ask" && request.method === "POST") {
-        const body = await request.json() as { tag?: string; question?: string };
-        if (!body.tag || !body.question) return json({ error: "tag and question are required" }, cors, 400);
+        const body = await parseJson(request) as { tag?: string; question?: string } | null;
+        if (!body?.tag || !body.question) return json({ error: "tag and question are required" }, cors, 400);
         assertTag(body.tag);
         const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL });
         const tag = body.tag;
@@ -188,6 +190,7 @@ export default {
       return json({ error: "Not found" }, cors, 404);
     } catch (error) {
       if (error instanceof CocApiError) return json({ error: error.message, code: error.code, retryAfterSeconds: error.retryAfterSeconds }, cors, error.status);
+      if (error instanceof ValidationError || error instanceof SyntaxError || error instanceof URIError) return json({ error: error.message || "Invalid request" }, cors, 400);
       return json({ error: error instanceof Error ? error.message : "Internal error" }, cors, 500);
     }
   },
@@ -204,12 +207,20 @@ export default {
 };
 
 function assertTag(tag: string) {
-  if (!/^#?[0289PYLQGRJCUV]+$/i.test(tag)) throw new Error("Invalid player tag");
+  if (!/^#?[0289PYLQGRJCUV]+$/i.test(tag)) throw new ValidationError("Invalid player tag");
 }
 
 function validateCredentials(email: string | undefined, password: string | undefined) {
-  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !password || password.length < 8) {
-    throw new Error("A valid email and password of at least 8 characters are required");
+  if (typeof email !== "string" || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || typeof password !== "string" || password.length < 8) {
+    throw new ValidationError("A valid email and password of at least 8 characters are required");
+  }
+}
+
+async function parseJson(request: Request) {
+  try {
+    return await request.json() as unknown;
+  } catch {
+    throw new ValidationError("Request body must be valid JSON");
   }
 }
 
@@ -229,19 +240,19 @@ async function getSnapshot(tag: string, client: CocClient, state: KVNamespace): 
 }
 
 function validateBase(input: unknown): BaseState {
-  if (!input || typeof input !== "object") throw new Error("Base state must be an object");
+  if (!input || typeof input !== "object") throw new ValidationError("Base state must be an object");
   const body = input as Record<string, unknown>;
   const number = (value: unknown, name: string) => {
     if (value === undefined) return undefined;
-    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) throw new Error(`${name} must be a non-negative number`);
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) throw new ValidationError(`${name} must be a non-negative number`);
     return value;
   };
   const goal = body.goal;
-  if (goal !== undefined && !["war", "farm", "trophy", "balanced"].includes(String(goal))) throw new Error("Invalid goal");
+  if (goal !== undefined && !["war", "farm", "trophy", "balanced"].includes(String(goal))) throw new ValidationError("Invalid goal");
   const resources = body.resources;
   let parsedResources: BaseState["resources"];
   if (resources !== undefined) {
-    if (!resources || typeof resources !== "object") throw new Error("resources must be an object");
+    if (!resources || typeof resources !== "object") throw new ValidationError("resources must be an object");
     const values = resources as Record<string, unknown>;
     parsedResources = {
       gold: number(values.gold, "gold"),
@@ -251,10 +262,10 @@ function validateBase(input: unknown): BaseState {
   }
   let buildingLevels: Record<string, number[]> | undefined;
   if (body.buildingLevels !== undefined) {
-    if (!body.buildingLevels || typeof body.buildingLevels !== "object") throw new Error("buildingLevels must be an object");
+    if (!body.buildingLevels || typeof body.buildingLevels !== "object") throw new ValidationError("buildingLevels must be an object");
     buildingLevels = {};
     for (const [name, levels] of Object.entries(body.buildingLevels as Record<string, unknown>)) {
-      if (!Array.isArray(levels) || levels.some((level) => number(level, `${name} level`) === undefined)) throw new Error("buildingLevels values must be arrays of numbers");
+      if (!Array.isArray(levels) || levels.some((level) => number(level, `${name} level`) === undefined)) throw new ValidationError("buildingLevels values must be arrays of numbers");
       buildingLevels[name] = levels as number[];
     }
   }

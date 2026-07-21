@@ -71,4 +71,18 @@ describe("account analyzer", () => {
     expect(names).not.toContain("Pumpkin Barbarian");
     expect(result.categories.troops.items.map((item) => item.name)).not.toContain("Pumpkin Barbarian");
   });
+
+  it("excludes super troops from account items and completion", () => {
+    const withSuper: Player = {
+      ...player,
+      troops: [
+        { name: "Barbarian", level: 2, maxLevel: 13, village: "home" },
+        { name: "Super Barbarian", level: 12, maxLevel: 13, village: "home" },
+        { name: "Sneaky Goblin", level: 7, maxLevel: 9, village: "home", superTroopIsActive: true },
+      ],
+    };
+    const result = analyzeAccount(withSuper, fullCatalog as unknown as GameCatalog);
+    expect(result.categories.troops.items.some((item) => item.name.startsWith("Super ") || item.name === "Sneaky Goblin")).toBe(false);
+    expect(result.categories.troops.completion).toBe(analyzeAccount(player, fullCatalog as unknown as GameCatalog).categories.troops.completion);
+  });
 });

@@ -17,6 +17,11 @@ type UnlockRequirements = {
 };
 
 const unlockMap = unlockRequirements as UnlockRequirements;
+const SUPER_TROOP_NAMES = new Set(["Sneaky Goblin", "Ice Hound", "Inferno Dragon", "Rocket Balloon"]);
+
+export function isSuperTroopName(name: string) {
+  return name.startsWith("Super ") || SUPER_TROOP_NAMES.has(name);
+}
 
 function isTemporary(entity: CatalogEntity) {
   return entity.levels.length > 0 &&
@@ -98,8 +103,8 @@ export function analyzeAccount(player: Player, catalog: GameCatalog): AccountAna
   const th = player.townHallLevel;
   const heroes = category(active(catalog.heroes.filter((item) => item.village === "home")), player.heroes, th, unlockMap.heroes);
   const troops = category(
-    active(catalog.troops.filter((item) => item.village === "home")),
-    player.troops?.filter((item) => item.village !== "builderBase"),
+    active(catalog.troops.filter((item) => item.village === "home" && !isSuperTroopName(item.name))),
+    player.troops?.filter((item) => item.village !== "builderBase" && !item.superTroopIsActive && !isSuperTroopName(item.name)),
     th,
     unlockMap.troops,
   );
@@ -110,8 +115,8 @@ export function analyzeAccount(player: Player, catalog: GameCatalog): AccountAna
     unlockMap.spells,
   );
   const builderBase = category(
-    active(catalog.troops.filter((item) => item.village === "builderBase")),
-    player.troops?.filter((item) => item.village === "builderBase"),
+    active(catalog.troops.filter((item) => item.village === "builderBase" && !isSuperTroopName(item.name))),
+    player.troops?.filter((item) => item.village === "builderBase" && !item.superTroopIsActive && !isSuperTroopName(item.name)),
     player.builderHallLevel ?? 0,
     {},
   );
@@ -122,7 +127,7 @@ export function analyzeAccount(player: Player, catalog: GameCatalog): AccountAna
   const unlockable: AccountAnalysis["unlockable"] = [];
   for (const [name, entities, level] of [
     ["heroes", active(catalog.heroes.filter((item) => item.village === "home")), th],
-    ["troops", active(catalog.troops.filter((item) => item.village === "home")), th],
+    ["troops", active(catalog.troops.filter((item) => item.village === "home" && !isSuperTroopName(item.name))), th],
     ["spells", active(catalog.spells.filter((item) => item.village === "home")), th],
   ] as const) {
     const known = new Set(
