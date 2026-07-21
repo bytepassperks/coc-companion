@@ -15,6 +15,21 @@ npm test
 npm run dev
 ```
 
+Refresh the trimmed static catalog after an upstream game-data update:
+
+```sh
+node scripts/build-catalog.mjs
+```
+
+The generated `config/game-data.json` contains only upgrade requirements, costs,
+times, and resource types for heroes, troops, spells, buildings, and traps. It
+is attributed to coc.guide via coc.py (MIT), with source/access metadata stored
+in the file.
+
+`config/unlock-requirements.json` is a separately curated, community-consensus
+map of actual home-village unlock Town Halls. It intentionally has a safe
+default: entities absent from the map are not presented as unlockable.
+
 Create a KV namespace and update the placeholder IDs in `wrangler.toml`:
 
 ```sh
@@ -32,6 +47,9 @@ The dashboard is a static site in `dashboard/`. Deploy it with Cloudflare Pages 
 - `GET /api/player/:tag`
 - `GET /api/recommendations/:tag`
 - `GET /api/feed/:tag`
+- `GET /api/base/:tag` and `POST /api/base/:tag` for estimated builders, resources,
+  goals, and manually entered building levels
+- `GET /api/plan/:tag` for account completion and ranked next-best actions
 - `POST /api/watch/:tag` to register a tag for five-minute polling
 - `DELETE /api/watch/:tag` to stop polling
 - `POST /api/ask` with `{ "tag": "#TAG", "question": "..." }`
@@ -45,6 +63,12 @@ The dashboard is a static site in `dashboard/`. Deploy it with Cloudflare Pages 
 - The default API base is the RoyaleAPI proxy (`https://cocproxy.royaleapi.dev/v1`) because the supplied key is IP-locked to proxy egress `45.79.218.79`; configure `COC_API_BASE_URL` to override it. Direct `https://api.clashofclans.com/v1` works when your key is configured for a stable permitted IP. API keys are IP-bound; 403 `invalidIp`, 429 rate limits, and 503 maintenance are surfaced as typed errors. Retries use exponential backoff with jitter and honor `Retry-After`.
 - Workers AI is optional. `AI_DAILY_CAP` defaults to a conservative 8,000 estimated-neuron proxy per UTC day. When unavailable or near the cap, the rules-based recommendation text is returned.
 - The exact upgrade priorities and army suggestions are sourced from `research/strategy-meta.md` and carry confidence labels. Several lower-TH current rankings are marked unverified because source pages were inaccessible during research.
+- The analyzer labels provenance as `observed` (official payload), `calculated` (payload plus catalog), `estimated` (manual input), or `unavailable` (not exposed by the API). Buildings, walls, resources, builder availability, and active timers remain unavailable until entered manually.
+- Account analysis compares levels against Town Hall caps from the catalog and reports unlockable entities, achievement highlights, category completion, and overall completion. API `maxLevel` is treated as an API/global fallback, not a Town Hall cap.
+- Seasonal/temporary zero-cost catalog entries are excluded from completion and
+  unlock analysis. Unlock cards are capped and include their prerequisite
+  Barracks, Dark Barracks, Laboratory, or Hero Hall.
+- Next-best-action scoring combines strategic value, unlock value, confidence, cost/time, goal, affordability, and builder/laboratory gating. Workers AI narrates the plan only; it never changes the ranked rules list, and missing AI or budget exhaustion falls back to rules-only text.
 
 ## ToS boundary
 

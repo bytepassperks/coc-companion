@@ -68,6 +68,15 @@ export function diffSnapshots(
   if (!previous) return [];
   const events: NotificationEvent[] = [];
   const now = new Date().toISOString();
+  if (current.player.townHallLevel > previous.player.townHallLevel) {
+    events.push({
+      id: `th:${current.player.townHallLevel}:${current.player.tag}`,
+      type: "th_upgraded",
+      createdAt: now,
+      message: `Town Hall reached level ${current.player.townHallLevel}.`,
+      data: { level: current.player.townHallLevel },
+    });
+  }
   for (const hero of current.player.heroes ?? []) {
     const before = previous.player.heroes?.find((item) => item.name === hero.name);
     if (before && hero.level > before.level) {

@@ -133,6 +133,9 @@
     "TH18": "Official July data identifies Dragon armies at about 20% of TH18-vs-TH18 war attacks and Throwers plus Healers as the other major class."
   },
   "army_comp_suggestions": {
+    "TH7": ["Mass Dragons", "Dragons + Lightning on Air Defenses", "Hog Riders", "Giant-Healer"],
+    "TH8": ["Mass Dragons + Lightning", "Hog Riders (GoHo)", "GoWiPe"],
+    "TH9": ["LavaLoon", "GoHo", "Witch slap", "Queen walk variants"],
     "TH10": ["Queen Charge Hybrid", "Miner/Hog Hybrid", "LaLo", "Zap Dragons"],
     "TH11": ["Electro Dragons", "Queen Charge LaLo", "Hybrid", "Zap Witch/Yeti smash"],
     "TH12": ["Blizzard LaLo", "Hybrid", "Yeti smash", "Dragons"],

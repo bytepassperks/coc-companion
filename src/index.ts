@@ -1,11 +1,15 @@
 import upgradeConfig from "../config/upgrade-priorities.json";
 import notificationConfig from "../config/notifications.json";
+import gameCatalog from "../config/game-data.json";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { CocClient, CocApiError, type CacheLayer } from "./cocClient";
-import { answerQuestion, DEFAULT_AI_MODEL } from "./ai";
+import { answerQuestion, generatePlan, DEFAULT_AI_MODEL } from "./ai";
 import { collectNotifications } from "./notifications";
 import { getRecommendations } from "./recommendationEngine";
+import { analyzeAccount } from "./analyzer";
+import { getNextBestActions } from "./nextBestAction";
 import type { Env } from "./workerTypes";
+import type { BaseState, GameCatalog, Player, Snapshot } from "./types";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -14,6 +18,18 @@ export default {
     try {
       if (request.method === "OPTIONS") return new Response(null, { headers: cors });
       if (url.pathname === "/api/status") return json({ ok: true, service: "coc-companion", readOnly: true }, cors);
+      const baseMatch = url.pathname.match(/^\/api\/base\/([^/]+)$/);
+      if (baseMatch && (request.method === "GET" || request.method === "POST")) {
+        const tag = decodeURIComponent(baseMatch[1]);
+        assertTag(tag);
+        const key = `base:${tag.replace(/^#/, "")}`;
+        if (request.method === "GET") return json((await env.STATE.get(key, "json")) ?? null, cors);
+        const body = await request.json();
+        const base = validateBase(body);
+        await env.STATE.put(key, JSON.stringify(base));
+        await env.STATE.delete(`plan:${tag.replace(/^#/, "")}`);
+        return json(base, cors);
+      }
       const watchMatch = url.pathname.match(/^\/api\/watch\/([^/]+)$/);
       if (watchMatch && (request.method === "POST" || request.method === "DELETE")) {
         const tag = decodeURIComponent(watchMatch[1]);
@@ -48,6 +64,38 @@ export default {
         const response = await answerQuestion(env.AI, body.question, snapshot ?? { fetchedAt: new Date().toISOString(), player }, recommendations, env.STATE, Number(env.AI_DAILY_CAP ?? 8000), env.AI_MODEL ?? DEFAULT_AI_MODEL);
         return json({ answer: response }, cors);
       }
+      const planMatch = url.pathname.match(/^\/api\/plan\/([^/]+)$/);
+      if (planMatch && request.method === "GET") {
+        const tag = decodeURIComponent(planMatch[1]);
+        assertTag(tag);
+        const normalized = tag.replace(/^#/, "");
+        const cached = await env.STATE.get(`plan:${normalized}`, "json");
+        if (cached) return json(cached, cors);
+        const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
+        const snapshot = await getSnapshot(tag, client, env.STATE);
+        const base = await env.STATE.get(`base:${normalized}`, "json") as BaseState | null;
+        const analysis = analyzeAccount(snapshot.player, gameCatalog as unknown as GameCatalog);
+        const actions = getNextBestActions(snapshot.player, gameCatalog as unknown as GameCatalog, analysis, base ?? undefined);
+        const ai = await generatePlan(env.AI, {
+          player: snapshot.player,
+          analysis,
+          actions,
+          armySuggestions: (upgradeConfig as { army_comp_suggestions?: Record<string, string[]> }).army_comp_suggestions?.[`TH${snapshot.player.townHallLevel}`],
+        }, env.STATE, Number(env.AI_DAILY_CAP ?? 8000), env.AI_MODEL ?? DEFAULT_AI_MODEL);
+        const plan = {
+          headline: actions[0]?.action ?? "No next-best action yet",
+          planText: ai.text,
+          actions,
+          completion: {
+            overall: analysis.overallCompletion,
+            categories: Object.fromEntries(Object.entries(analysis.categories).map(([name, value]) => [name, value.completion])),
+          },
+          generatedAt: new Date().toISOString(),
+          aiUsed: ai.used,
+        };
+        await env.STATE.put(`plan:${normalized}`, JSON.stringify(plan), { expirationTtl: 600 });
+        return json(plan, cors);
+      }
       return json({ error: "Not found" }, cors, 404);
     } catch (error) {
       if (error instanceof CocApiError) return json({ error: error.message, code: error.code, retryAfterSeconds: error.retryAfterSeconds }, cors, error.status);
@@ -68,6 +116,54 @@ export default {
 
 function assertTag(tag: string) {
   if (!/^#?[0289PYLQGRJCUV]+$/i.test(tag)) throw new Error("Invalid player tag");
+}
+
+async function getSnapshot(tag: string, client: CocClient, state: KVNamespace): Promise<Snapshot> {
+  const cached = await state.get(`state:${tag.replace(/^#/, "")}`, "json") as Snapshot | null;
+  if (cached) return cached;
+  const player = await client.getPlayer(tag);
+  return { fetchedAt: new Date().toISOString(), player };
+}
+
+function validateBase(input: unknown): BaseState {
+  if (!input || typeof input !== "object") throw new Error("Base state must be an object");
+  const body = input as Record<string, unknown>;
+  const number = (value: unknown, name: string) => {
+    if (value === undefined) return undefined;
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) throw new Error(`${name} must be a non-negative number`);
+    return value;
+  };
+  const goal = body.goal;
+  if (goal !== undefined && !["war", "farm", "trophy", "balanced"].includes(String(goal))) throw new Error("Invalid goal");
+  const resources = body.resources;
+  let parsedResources: BaseState["resources"];
+  if (resources !== undefined) {
+    if (!resources || typeof resources !== "object") throw new Error("resources must be an object");
+    const values = resources as Record<string, unknown>;
+    parsedResources = {
+      gold: number(values.gold, "gold"),
+      elixir: number(values.elixir, "elixir"),
+      darkElixir: number(values.darkElixir, "darkElixir"),
+    };
+  }
+  let buildingLevels: Record<string, number[]> | undefined;
+  if (body.buildingLevels !== undefined) {
+    if (!body.buildingLevels || typeof body.buildingLevels !== "object") throw new Error("buildingLevels must be an object");
+    buildingLevels = {};
+    for (const [name, levels] of Object.entries(body.buildingLevels as Record<string, unknown>)) {
+      if (!Array.isArray(levels) || levels.some((level) => number(level, `${name} level`) === undefined)) throw new Error("buildingLevels values must be arrays of numbers");
+      buildingLevels[name] = levels as number[];
+    }
+  }
+  return {
+    buildersTotal: number(body.buildersTotal, "buildersTotal"),
+    buildersFree: number(body.buildersFree, "buildersFree"),
+    labBusy: body.labBusy === undefined ? undefined : Boolean(body.labBusy),
+    resources: parsedResources,
+    goal: goal as BaseState["goal"],
+    buildingLevels,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function json(value: unknown, headers: Headers, status = 200) {

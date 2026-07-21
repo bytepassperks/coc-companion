@@ -19,6 +19,27 @@
         <button id="load">Load snapshot</button>
         <span id="status" role="status"></span>
       </section>
+      <section id="plan" class="card hidden">
+        <p class="eyebrow">Next best actions</p>
+        <h2 id="planHeadline"></h2>
+        <pre id="planText"></pre>
+        <div id="actions" class="action-grid"></div>
+        <div id="completion"></div>
+      </section>
+      <section class="card">
+        <h2>Your base <small>(manual)</small></h2>
+        <p class="muted">The official API does not expose builders, resources, or building levels. Enter estimates to improve ranking.</p>
+        <form id="baseForm" class="base-form">
+          <label>Builders total <input id="buildersTotal" type="number" min="0"></label>
+          <label>Builders free <input id="buildersFree" type="number" min="0"></label>
+          <label class="check"><input id="labBusy" type="checkbox"> Laboratory busy</label>
+          <label>Gold <input id="gold" type="number" min="0"></label>
+          <label>Elixir <input id="elixir" type="number" min="0"></label>
+          <label>Dark elixir <input id="darkElixir" type="number" min="0"></label>
+          <label>Goal <select id="goal"><option value="balanced">Balanced</option><option value="war">War</option><option value="farm">Farm</option><option value="trophy">Trophy</option></select></label>
+          <button>Save base and refresh plan</button>
+        </form>
+      </section>
       <section id="overview" class="card hidden"></section>
       <section class="grid">
         <article class="card"><h2>Recommendations</h2><ol id="recommendations"><li>Enter a player tag to begin.</li></ol></article>

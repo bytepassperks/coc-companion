@@ -8,8 +8,22 @@ h2 { margin-top: 0; }
 .settings { display: grid; gap: .8rem; }
 label { display: grid; gap: .3rem; color: #b7c4d3; }
 input { padding: .7rem; border-radius: 8px; border: 1px solid #445467; background: #10151d; color: inherit; }
+select { padding: .7rem; border-radius: 8px; border: 1px solid #445467; background: #10151d; color: inherit; }
 button { padding: .7rem 1rem; border: 0; border-radius: 8px; color: #07110b; background: #75e0a1; font-weight: 700; cursor: pointer; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.base-form, .action-grid { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+.action { border: 1px solid #34495e; border-radius: 10px; padding: .8rem; background: #202d3b; }
+.action h3 { margin: 0; font-size: 1rem; }
+.action p { margin: .45rem 0; }
+.badge { display: inline-block; background: #30465d; padding: .2rem .4rem; margin: .15rem; border-radius: 4px; font-size: .75rem; }
+.warning { background: #754b37; }
+.progress { background: #0e151d; border-radius: 99px; height: .5rem; overflow: hidden; }
+.progress span { display: block; background: #75e0a1; height: 100%; }
+.bar-label { margin: .6rem 0; }
+.bar-label span { float: right; color: #75e0a1; }
+.check { display: flex; align-items: center; gap: .5rem; }
+.check input { width: auto; }
+.muted { color: #b7c4d3; }
 li { margin: .7rem 0; }
 small { display: block; color: #b7c4d3; margin-top: .2rem; }
 .heroes { display: flex; flex-wrap: wrap; gap: .5rem; }
