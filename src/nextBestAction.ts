@@ -70,11 +70,11 @@ export function getNextBestActions(
     const normalizedSubject = subject.trim().toLowerCase();
     const armySelected = !builder && Boolean(selectedArmy?.some((unit) => unit.trim().toLowerCase() === normalizedSubject));
     const lineupSelected = category === "hero upgrade" && Boolean(base?.heroLineup?.some((hero) => hero.trim().toLowerCase() === normalizedSubject));
-    const prioritySelected = armySelected || lineupSelected;
     const activeTimer = Boolean(timerContext?.activeLabels?.some((label) => {
       const normalizedLabel = label.trim().toLowerCase();
       return normalizedLabel && (normalizedSubject.includes(normalizedLabel) || normalizedLabel.includes(normalizedSubject));
     }));
+    const prioritySelected = (armySelected || lineupSelected) && !activeTimer;
     if (armySelected) {
       strategic *= 1.5;
       notes.push(`In your ${goal === "war" ? "war" : "home"} army.`);
