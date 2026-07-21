@@ -73,12 +73,14 @@ describe("watch routes", () => {
     const response = await worker.fetch(new Request("https://example.test/api/plan/%232PYC"), testEnv as never);
     const body = await response.json() as {
       aiUsed: boolean;
+      aiReview?: { verdict: string; notes: string[] };
       planText: string;
       actions: unknown[];
       accountDetails?: { categories?: { heroes?: { items?: Array<{ name: string; level: number; thCapLevel: number; apiMaxLevel?: number }> } } };
     };
     expect(response.status).toBe(200);
     expect(body.aiUsed).toBe(false);
+    expect(body.aiReview).toEqual(expect.objectContaining({ verdict: "endorsed", notes: expect.any(Array) }));
     expect(body.planText).toContain("3-step plan");
     expect(body.actions.length).toBeGreaterThan(0);
     expect(body.accountDetails?.categories?.heroes?.items?.[0]).toEqual(expect.objectContaining({

@@ -47,3 +47,9 @@
 - Added authenticated “skip for now” checklist actions with KV persistence,
   plan reordering, dashboard un-skip controls, and clearer humanized dashboard
   copy for recommendation slugs, feed types, action labels, and identity text.
+- Added a defensive AI expert-panel review of deterministic plan ordering,
+  exposed as `aiReview`, plus a dashboard verdict card. Expanded dashboard
+  spacing and responsive text legibility across identity, lists, and cards.
+- Upgraded the default Workers AI model to GPT OSS 120B with configurable
+  ordered model fallbacks and shape-tolerant response parsing for response,
+  OpenAI choices, output text, and Responses API output formats.

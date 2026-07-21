@@ -5,6 +5,7 @@ const profileHeader = document.querySelector("#profileHeader");
 const accountDetails = document.querySelector("#accountDetails");
 const planHeadline = document.querySelector("#planHeadline");
 const planText = document.querySelector("#planText");
+const aiReview = document.querySelector("#aiReview");
 const actions = document.querySelector("#actions");
 const completion = document.querySelector("#completion");
 const warStats = document.querySelector("#warStats");
@@ -124,6 +125,10 @@ function renderClanWar(war, clan, capital) {
 function renderPlan(value) {
   planHeadline.textContent = value.headline;
   planText.textContent = value.planText;
+  const review = value.aiReview;
+  aiReview.innerHTML = review
+    ? `<strong>Expert panel: ${review.verdict === "endorsed" ? "✔ endorsed by AI strategist panel" : "⚖ adjusted by AI strategist panel"}</strong>${review.notes?.length ? `<ul>${review.notes.map(note => `<li>${escapeHtml(note)}</li>`).join("")}</ul>` : ""}`
+    : "";
   const catalogMeta = value.catalogMeta;
   const gameData = catalogMeta ? `Game data: ${formatDate(catalogMeta.fetchedAt)} (auto-updated daily)` : "Game data date unavailable";
   document.querySelector("#gameDataMeta").textContent = gameData;

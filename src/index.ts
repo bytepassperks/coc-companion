@@ -2,7 +2,7 @@ import upgradeConfig from "../config/upgrade-priorities.json";
 import notificationConfig from "../config/notifications.json";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { CocClient, CocApiError, type CacheLayer } from "./cocClient";
-import { answerQuestion, generatePlan, DEFAULT_AI_MODEL } from "./ai";
+import { answerQuestion, generatePlan, DEFAULT_AI_MODEL, DEFAULT_AI_FALLBACK_MODELS } from "./ai";
 import { collectNotifications } from "./notifications";
 import { getRecommendations } from "./recommendationEngine";
 import { analyzeAccount } from "./analyzer";
@@ -168,7 +168,8 @@ export default {
         const player = snapshot?.player ?? await client.getPlayer(tag);
         const loaded = await loadCatalog(env.STATE);
         const recommendations = getRecommendations(player, upgradeConfig as unknown as Parameters<typeof getRecommendations>[1], loaded.catalog);
-        const response = await answerQuestion(env.AI, body.question, snapshot ?? { fetchedAt: new Date().toISOString(), player }, recommendations, env.STATE, Number(env.AI_DAILY_CAP ?? 8000), env.AI_MODEL ?? DEFAULT_AI_MODEL);
+        const aiModels = configuredAiModels(env);
+        const response = await answerQuestion(env.AI, body.question, snapshot ?? { fetchedAt: new Date().toISOString(), player }, recommendations, env.STATE, Number(env.AI_DAILY_CAP ?? 8000), aiModels[0], aiModels.slice(1));
         return json({ answer: response }, cors);
       }
       const planMatch = url.pathname.match(/^\/api\/plan\/([^/]+)$/);
@@ -199,7 +200,7 @@ export default {
           analysis,
           actions,
           armySuggestions: (upgradeConfig as { army_comp_suggestions?: Record<string, string[]> }).army_comp_suggestions?.[`TH${snapshot.player.townHallLevel}`],
-        }, env.STATE, Number(env.AI_DAILY_CAP ?? 8000), env.AI_MODEL ?? DEFAULT_AI_MODEL);
+        }, env.STATE, Number(env.AI_DAILY_CAP ?? 8000), configuredAiModels(env)[0], configuredAiModels(env).slice(1));
         const plan = {
           headline: actions[0]?.action ?? "No next-best action yet",
           planText: ai.text,
@@ -216,6 +217,7 @@ export default {
               : snapshot.player.heroes?.flatMap((hero) => hero.equipment ?? []) ?? [],
           },
           catalogMeta: loaded.meta,
+          aiReview: ai.review,
           completedKeys: done,
           skippedKeys: skipped,
           generatedAt: new Date().toISOString(),
@@ -245,6 +247,14 @@ export default {
 
 function assertTag(tag: string) {
   if (!/^#?[0289PYLQGRJCUV]+$/i.test(tag)) throw new ValidationError("Invalid player tag");
+}
+
+function configuredAiModels(env: Env) {
+  const primary = env.AI_MODEL?.trim() || DEFAULT_AI_MODEL;
+  const fallback = env.AI_FALLBACK_MODELS
+    ? env.AI_FALLBACK_MODELS.split(",").map((model) => model.trim()).filter(Boolean)
+    : DEFAULT_AI_FALLBACK_MODELS;
+  return [...new Set([primary, ...fallback])];
 }
 
 function validateCredentials(email: string | undefined, password: string | undefined) {

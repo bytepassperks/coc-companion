@@ -3,9 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2026-07-21"
 
 [vars]
-AI_DAILY_CAP = "8000"
+AI_DAILY_CAP = "60000"
 COC_API_BASE_URL = "https://cocproxy.royaleapi.dev/v1"
-AI_MODEL = "@cf/meta/llama-3.2-3b-instruct"
+AI_MODEL = "@cf/openai/gpt-oss-120b"
+AI_FALLBACK_MODELS = "@cf/meta/llama-3.3-70b-instruct-fp8-fast,@cf/meta/llama-3.2-3b-instruct"
 
 [[kv_namespaces]]
 binding = "STATE"
