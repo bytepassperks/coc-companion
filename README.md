@@ -52,6 +52,9 @@ The dashboard is a static site in `dashboard/`. Deploy it with Cloudflare Pages 
 - `GET /api/plan/:tag` for account completion and ranked next-best actions
 - `GET /api/done/:tag`, `POST /api/done/:tag`, and `DELETE /api/done/:tag`
   for the one-at-a-time upgrade checklist
+- `GET /api/skip/:tag`, `POST /api/skip/:tag`, and `DELETE /api/skip/:tag`
+  for authenticated “skip for now” actions; skipped actions move behind active
+  actions and return with a previously-skipped note when all actions are skipped
 - `POST /api/auth/register` and `POST /api/auth/login` for app accounts, plus
   `POST /api/auth/logout`
 - `GET /api/war/:clanTag` for current-war stars, destruction, attack usage, and
@@ -93,6 +96,8 @@ copied from those projects.
   absent, stores it for 24 hours, and falls back to the bundled catalog if
   upstream is unavailable. Plans expose `catalogMeta` with the source,
   fetch date, and live/cached/bundled mode.
+- Dashboard copy humanizes recommendation categories, feed event types, action
+  labels, provenance, resources, and identity/equipment spacing.
 - Live player payload checks for TH7 (`#R2RVUQG89`) and TH16 (`#2PVR0VL89`)
   contained no separate `pets` field or pet entries in `troops`; the dashboard
   therefore does not render a speculative Pets table. Super Troops are likewise
