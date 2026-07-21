@@ -19,6 +19,11 @@
 - Corrected unlock analysis to use the curated real-unlock Town Hall map rather
   than laboratory-level requirements, and excluded seasonal/temporary entries
   from completion percentages.
+- Added a KV-backed one-at-a-time upgrade checklist with done/undo actions and
+  plan filtering.
+- Added app-level email/password authentication for write routes using salted
+  PBKDF2-SHA256 password hashes and expiring KV sessions; this is separate from
+  Supercell credentials.
 - Added read-only clan, current-war, and Capital Raid analytics endpoints,
   including donation ratios, top donors/raiders, attack usage, and unattacked
   members.

@@ -16,10 +16,27 @@ const capitalStats = document.querySelector("#capitalStats");
 const recommendations = document.querySelector("#recommendations");
 const feed = document.querySelector("#feed");
 const answer = document.querySelector("#answer");
+const authEmail = document.querySelector("#authEmail");
+const authPassword = document.querySelector("#authPassword");
+const authStatus = document.querySelector("#authStatus");
+const logoutButton = document.querySelector("#logout");
+const nextUpgrade = document.querySelector("#nextUpgrade");
+const completedActions = document.querySelector("#completedActions");
+const completedList = document.querySelector("#completedList");
+let sessionToken = localStorage.getItem("coc-session-token") || "";
 apiBase.value = localStorage.getItem("coc-api-base") || "https://coc-companion.getlaunchpod.workers.dev";
 playerTag.value = localStorage.getItem("coc-player-tag") || "";
 
 document.querySelector("#load").addEventListener("click", load);
+document.querySelector("#login").addEventListener("click", () => authenticate("/api/auth/login"));
+document.querySelector("#register").addEventListener("click", () => authenticate("/api/auth/register"));
+logoutButton.addEventListener("click", async () => {
+  try { await post("/api/auth/logout", {}, true); } catch (_) { /* expired session is already logged out */ }
+  sessionToken = "";
+  localStorage.removeItem("coc-session-token");
+  setAuthStatus("Logged out.");
+  updateAuthState();
+});
 document.querySelector("#baseForm").addEventListener("submit", async event => {
   event.preventDefault();
   try {
@@ -36,7 +53,7 @@ async function load() {
   localStorage.setItem("coc-player-tag", tag);
   setStatus("Loading…");
   try {
-    await post(`/api/watch/${encodeURIComponent(tag)}`, {});
+    if (sessionToken) await post(`/api/watch/${encodeURIComponent(tag)}`, {}, true);
     const player = await get(`/api/player/${encodeURIComponent(tag)}`);
     const clanTag = player.clan?.tag;
     const [recs, notifications, accountPlan, savedBase, war, clan, capital] = await Promise.all([
@@ -101,6 +118,23 @@ function renderPlan(value) {
   plan.classList.remove("hidden");
   planHeadline.textContent = value.headline;
   planText.textContent = value.planText;
+  const first = value.actions?.[0];
+  nextUpgrade.innerHTML = first ? `<div class="next-upgrade"><h3>Next upgrade</h3><p><strong>${escapeHtml(first.action)}</strong></p><p>${first.cost === undefined ? "Manual input required" : `${escapeHtml(formatNumber(first.cost))} ${escapeHtml(first.resource || "resources")}`} · ${humanTime(first.timeSeconds)}</p><button type="button" data-done-key="${escapeHtml(first.key || "")}">Mark done</button></div>` : "<div class=\"next-upgrade\"><h3>All caught up</h3><p>No remaining ranked actions.</p></div>";
+  nextUpgrade.querySelector("[data-done-key]")?.addEventListener("click", async event => {
+    try {
+      await post(`/api/done/${encodeURIComponent(playerTag.value.trim())}`, { key: event.currentTarget.dataset.doneKey }, true);
+      await load();
+    } catch (error) { setStatus(error.message); }
+  });
+  const completed = value.completedKeys || [];
+  completedActions.classList.toggle("hidden", completed.length === 0);
+  completedList.innerHTML = completed.map(key => `<p><code>${escapeHtml(key)}</code> <button type="button" data-undone-key="${escapeHtml(key)}">Un-check</button></p>`).join("");
+  completedList.querySelectorAll("[data-undone-key]").forEach(button => button.addEventListener("click", async event => {
+    try {
+      await post(`/api/done/${encodeURIComponent(playerTag.value.trim())}`, { key: event.currentTarget.dataset.undoneKey }, true, "DELETE");
+      await load();
+    } catch (error) { setStatus(error.message); }
+  }));
   actions.innerHTML = (value.actions || []).map(item => `<article class="action"><h3>${escapeHtml(item.action)}</h3><p>${escapeHtml(item.subject)}${item.targetLevel ? ` → level ${escapeHtml(item.targetLevel)}` : ""}</p><p>${item.cost !== undefined ? `${escapeHtml(item.cost)} ${escapeHtml(item.resource || "resources")}` : "Manual input required"} · ${humanTime(item.timeSeconds)}</p><div><span class="badge">${escapeHtml(item.confidence)}</span><span class="badge">${escapeHtml(item.provenance)}</span>${item.affordable === false ? '<span class="badge warning">unaffordable</span>' : ""}</div><small>${escapeHtml((item.notes || []).join(" "))}</small></article>`).join("");
   completion.innerHTML = `<h3>Account completion</h3><div class="progress"><span style="width:${safePercent(value.completion.overall)}%"></span></div><p>${Math.round(value.completion.overall * 100)}% overall</p>${Object.entries(value.completion.categories || {}).map(([name, percent]) => `<label class="bar-label">${escapeHtml(name)} <span>${Math.round(percent * 100)}%</span><div class="progress"><span style="width:${safePercent(percent)}%"></span></div></label>`).join("")}`;
 }
@@ -121,7 +155,31 @@ document.querySelector("#askForm").addEventListener("submit", async event => {
   catch (error) { answer.textContent = error.message; }
 });
 async function get(path) { return parse(await fetch(apiBase.value.replace(/\/$/, "") + path)); }
-async function post(path, body) { return parse(await fetch(apiBase.value.replace(/\/$/, "") + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })); }
+async function post(path, body, authenticated = false, method = "POST") {
+  const headers = { "Content-Type": "application/json" };
+  if (authenticated && sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
+  return parse(await fetch(apiBase.value.replace(/\/$/, "") + path, { method, headers, body: JSON.stringify(body) }));
+}
+async function authenticate(path) {
+  try {
+    const result = await post(path, { email: authEmail.value, password: authPassword.value });
+    if (path.endsWith("register")) {
+      setAuthStatus("Registered. Log in to continue.");
+      return;
+    }
+    sessionToken = result.token;
+    localStorage.setItem("coc-session-token", sessionToken);
+    setAuthStatus("Logged in.");
+    updateAuthState();
+    await load();
+  } catch (error) { setAuthStatus(error.message); }
+}
+function setAuthStatus(value) { authStatus.textContent = value; }
+function updateAuthState() {
+  logoutButton.classList.toggle("hidden", !sessionToken);
+  document.querySelector("#login").classList.toggle("hidden", Boolean(sessionToken));
+  document.querySelector("#register").classList.toggle("hidden", Boolean(sessionToken));
+}
 async function parse(response) { const body = await response.json(); if (!response.ok) throw new Error(body.error || "Request failed"); return body; }
 function setStatus(value) { status.textContent = value; }
 function humanTime(seconds) { if (!seconds) return "time n/a"; const days = Math.floor(seconds / 86400); const hours = Math.floor(seconds % 86400 / 3600); return `${days ? `${days}d ` : ""}${hours}h`; }
@@ -129,3 +187,4 @@ function timeUntil(value) { const seconds = Math.max(0, Math.floor((Date.parse(v
 function safePercent(value) { return Math.max(0, Math.min(100, Number(value) * 100 || 0)); }
 function formatNumber(value) { return typeof value === "number" ? new Intl.NumberFormat().format(value) : String(value); }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[char])); }
+updateAuthState();

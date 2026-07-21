@@ -17,12 +17,22 @@
         <label>Worker API base URL <input id="apiBase" placeholder="https://coc-companion.example.workers.dev"></label>
         <label>Player tag <input id="playerTag" placeholder="#2ABC..." maxlength="15"></label>
         <button id="load">Load snapshot</button>
+        <div class="auth-box">
+          <strong>App account</strong>
+          <small>This protects your checklist and manual base data. It is never a Supercell login.</small>
+          <label>Email <input id="authEmail" type="email" autocomplete="email"></label>
+          <label>Password <input id="authPassword" type="password" autocomplete="current-password"></label>
+          <div><button id="login" type="button">Log in</button> <button id="register" type="button">Register</button> <button id="logout" type="button" class="secondary hidden">Log out</button></div>
+          <span id="authStatus" role="status"></span>
+        </div>
         <span id="status" role="status"></span>
       </section>
       <section id="plan" class="card hidden">
         <p class="eyebrow">Next best actions</p>
         <h2 id="planHeadline"></h2>
         <pre id="planText"></pre>
+        <div id="nextUpgrade"></div>
+        <details id="completedActions" class="data-details hidden"><summary>Completed</summary><div id="completedList"></div></details>
         <div id="actions" class="action-grid"></div>
         <div id="completion"></div>
       </section>

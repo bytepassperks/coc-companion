@@ -50,6 +50,10 @@ The dashboard is a static site in `dashboard/`. Deploy it with Cloudflare Pages 
 - `GET /api/base/:tag` and `POST /api/base/:tag` for estimated builders, resources,
   goals, and manually entered building levels
 - `GET /api/plan/:tag` for account completion and ranked next-best actions
+- `GET /api/done/:tag`, `POST /api/done/:tag`, and `DELETE /api/done/:tag`
+  for the one-at-a-time upgrade checklist
+- `POST /api/auth/register` and `POST /api/auth/login` for app accounts, plus
+  `POST /api/auth/logout`
 - `GET /api/war/:clanTag` for current-war stars, destruction, attack usage, and
   unattacked members
 - `GET /api/clan/:clanTag` for clan/member donation analytics and top donors
@@ -77,6 +81,11 @@ copied from those projects.
 - Workers AI is optional. `AI_DAILY_CAP` defaults to a conservative 8,000 estimated-neuron proxy per UTC day. When unavailable or near the cap, the rules-based recommendation text is returned.
 - The exact upgrade priorities and army suggestions are sourced from `research/strategy-meta.md` and carry confidence labels. Several lower-TH current rankings are marked unverified because source pages were inaccessible during research.
 - The analyzer labels provenance as `observed` (official payload), `calculated` (payload plus catalog), `estimated` (manual input), or `unavailable` (not exposed by the API). Buildings, walls, resources, builder availability, and active timers remain unavailable until entered manually.
+- App authentication protects writes to watches, manual base state, and the
+  completed-action checklist. It is not a Supercell login: passwords are stored
+  only as salted PBKDF2-SHA256 hashes (120,000 iterations), and 30-day random
+  session tokens are stored in KV with expiration. Passwords are never stored
+  in plaintext and the account does not grant access to the game.
 - Account analysis compares levels against Town Hall caps from the catalog and reports unlockable entities, achievement highlights, category completion, and overall completion. API `maxLevel` is treated as an API/global fallback, not a Town Hall cap.
 - Seasonal/temporary zero-cost catalog entries are excluded from completion and
   unlock analysis. Unlock cards are capped and include their prerequisite

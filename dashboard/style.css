@@ -6,6 +6,11 @@ h2 { margin-top: 0; }
 .eyebrow { color: #75e0a1; text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; }
 .card { background: #18212c; border: 1px solid #2d3a49; border-radius: 14px; padding: 1rem; margin: 1rem 0; }
 .settings { display: grid; gap: .8rem; }
+.auth-box { border-top: 1px solid #2d3a49; padding-top: .8rem; display: grid; gap: .5rem; }
+.secondary { background: #30465d; color: #edf2f7; }
+.next-upgrade { border: 2px solid #75e0a1; border-radius: 12px; padding: 1rem; margin: 1rem 0; background: #20352e; }
+.next-upgrade h3 { margin: 0; color: #75e0a1; }
+.next-upgrade button { margin-top: .5rem; }
 label { display: grid; gap: .3rem; color: #b7c4d3; }
 input { padding: .7rem; border-radius: 8px; border: 1px solid #445467; background: #10151d; color: inherit; }
 select { padding: .7rem; border-radius: 8px; border: 1px solid #445467; background: #10151d; color: inherit; }

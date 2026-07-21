@@ -282,6 +282,7 @@ export interface BaseState {
 }
 
 export interface NextBestAction {
+  key?: string;
   action: string;
   category: string;
   subject: string;

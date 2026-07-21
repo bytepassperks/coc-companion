@@ -13,6 +13,8 @@ import { analyzeClan } from "./clanAnalytics";
 import { analyzeCapital } from "./capitalAnalytics";
 import type { Env } from "./workerTypes";
 import type { BaseState, GameCatalog, Player, Snapshot } from "./types";
+import { actionKey } from "./checklist";
+import { authenticateUser, bearerToken, createSession, destroySession, registerUser, sessionEmail } from "./auth";
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -21,6 +23,46 @@ export default {
     try {
       if (request.method === "OPTIONS") return new Response(null, { headers: cors });
       if (url.pathname === "/api/status") return json({ ok: true, service: "coc-companion", readOnly: true }, cors);
+      if (url.pathname === "/api/auth/register" && request.method === "POST") {
+        const body = await request.json() as { email?: string; password?: string };
+        validateCredentials(body.email, body.password);
+        await registerUser(env.STATE, body.email!, body.password!);
+        return json({ registered: true, email: body.email!.trim().toLowerCase() }, cors, 201);
+      }
+      if (url.pathname === "/api/auth/login" && request.method === "POST") {
+        const body = await request.json() as { email?: string; password?: string };
+        validateCredentials(body.email, body.password);
+        if (!await authenticateUser(env.STATE, body.email!, body.password!)) return json({ error: "Invalid email or password" }, cors, 401);
+        return json({ token: await createSession(env.STATE, body.email!) }, cors);
+      }
+      if (url.pathname === "/api/auth/logout" && request.method === "POST") {
+        const token = bearerToken(request);
+        if (!await sessionEmail(env.STATE, token)) return unauthorized(cors);
+        await destroySession(env.STATE, token);
+        return json({ loggedOut: true }, cors);
+      }
+      const doneMatch = url.pathname.match(/^\/api\/done\/([^/]+)$/);
+      if (doneMatch && request.method === "GET") {
+        const tag = decodeURIComponent(doneMatch[1]);
+        assertTag(tag);
+        return json((await env.STATE.get<string[]>(`done:${tag.replace(/^#/, "")}`, "json")) ?? [], cors);
+      }
+      if (doneMatch && (request.method === "POST" || request.method === "DELETE")) {
+        if (!await requireSession(request, env)) return unauthorized(cors);
+        const tag = decodeURIComponent(doneMatch[1]);
+        assertTag(tag);
+        const normalized = tag.replace(/^#/, "");
+        const body = await request.json() as { key?: string };
+        if (!body.key || typeof body.key !== "string") return json({ error: "key is required" }, cors, 400);
+        const key = `done:${normalized}`;
+        const current = (await env.STATE.get<string[]>(key, "json")) ?? [];
+        const next = request.method === "POST"
+          ? [...new Set([...current, body.key])]
+          : current.filter((item) => item !== body.key);
+        await env.STATE.put(key, JSON.stringify(next));
+        await env.STATE.delete(`plan:${normalized}`);
+        return json(next, cors);
+      }
       const warMatch = url.pathname.match(/^\/api\/war\/([^/]+)$/);
       if (warMatch && request.method === "GET") {
         const clanTag = decodeURIComponent(warMatch[1]);
@@ -61,6 +103,7 @@ export default {
         assertTag(tag);
         const key = `base:${tag.replace(/^#/, "")}`;
         if (request.method === "GET") return json((await env.STATE.get(key, "json")) ?? null, cors);
+        if (!await requireSession(request, env)) return unauthorized(cors);
         const body = await request.json();
         const base = validateBase(body);
         await env.STATE.put(key, JSON.stringify(base));
@@ -69,6 +112,7 @@ export default {
       }
       const watchMatch = url.pathname.match(/^\/api\/watch\/([^/]+)$/);
       if (watchMatch && (request.method === "POST" || request.method === "DELETE")) {
+        if (!await requireSession(request, env)) return unauthorized(cors);
         const tag = decodeURIComponent(watchMatch[1]);
         assertTag(tag);
         const key = `watch:${tag.replace(/^#/, "")}`;
@@ -112,7 +156,10 @@ export default {
         const snapshot = await getSnapshot(tag, client, env.STATE);
         const base = await env.STATE.get(`base:${normalized}`, "json") as BaseState | null;
         const analysis = analyzeAccount(snapshot.player, gameCatalog as unknown as GameCatalog);
-        const actions = getNextBestActions(snapshot.player, gameCatalog as unknown as GameCatalog, analysis, base ?? undefined);
+        const done = (await env.STATE.get<string[]>(`done:${normalized}`, "json")) ?? [];
+        const actions = getNextBestActions(snapshot.player, gameCatalog as unknown as GameCatalog, analysis, base ?? undefined)
+          .map((action) => ({ ...action, key: actionKey(action) }))
+          .filter((action) => !done.includes(action.key));
         const ai = await generatePlan(env.AI, {
           player: snapshot.player,
           analysis,
@@ -131,6 +178,7 @@ export default {
             categories: analysis.categories,
             achievements: analysis.achievements,
           },
+          completedKeys: done,
           generatedAt: new Date().toISOString(),
           aiUsed: ai.used,
         };
@@ -157,6 +205,20 @@ export default {
 
 function assertTag(tag: string) {
   if (!/^#?[0289PYLQGRJCUV]+$/i.test(tag)) throw new Error("Invalid player tag");
+}
+
+function validateCredentials(email: string | undefined, password: string | undefined) {
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !password || password.length < 8) {
+    throw new Error("A valid email and password of at least 8 characters are required");
+  }
+}
+
+async function requireSession(request: Request, env: Env) {
+  return sessionEmail(env.STATE, bearerToken(request));
+}
+
+function unauthorized(headers: Headers) {
+  return json({ error: "Authentication required" }, headers, 401);
 }
 
 async function getSnapshot(tag: string, client: CocClient, state: KVNamespace): Promise<Snapshot> {
