@@ -5,6 +5,7 @@ import type {
   NextBestAction,
   Player,
 } from "./types";
+import roleConfig from "../config/action-roles.json";
 
 type Upgrade = { cost: number; resource?: string; time: number; requiredTH?: number; requiredLab?: number };
 type Candidate = NextBestAction & {
@@ -16,6 +17,8 @@ type Candidate = NextBestAction & {
   gate?: number;
   confidenceFactor?: number;
   prioritySelected?: boolean;
+  thCapLevel?: number;
+  activeTimer?: boolean;
 };
 
 export interface TimerContext {
@@ -34,6 +37,15 @@ function median(values: number[], fallback = 1) {
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
+
+function durationLabel(seconds: number) {
+  if (!seconds) return "duration unavailable";
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor(seconds % 86400 / 3600);
+  return days ? `${days}d${hours ? ` ${hours}h` : ""}` : `${hours || 1}h`;
+}
+
+const roles = roleConfig as { categories: Record<string, string>; units: Record<string, string> };
 
 export function getNextBestActions(
   player: Player,
@@ -98,6 +110,7 @@ export function getNextBestActions(
       confidence: "community_consensus",
       provenance: "calculated",
       notes,
+      why: "",
       affordable,
       kind: "upgrade",
       rawCost: cost,
@@ -106,6 +119,8 @@ export function getNextBestActions(
       gate: builder && (base?.buildersFree === 0 || timerContext?.buildersBusy) ? 0.3 : !builder && base?.labBusy ? 0.3 : 1,
       confidenceFactor: 0.9,
       prioritySelected,
+      thCapLevel: (item as { thCapLevel?: number }).thCapLevel,
+      activeTimer,
       availability: activeTimer ? 0.35 : affordable === false ? 0.65 : 1,
     });
   };
@@ -132,6 +147,7 @@ export function getNextBestActions(
       confidence: "community_consensus",
       provenance: "calculated",
       notes: ["Available at this Town Hall; verify the prerequisite building in your manual base state."],
+      why: "This unlock is available at your Town Hall; verify the prerequisite building before committing.",
       kind: "unlock",
     });
   }
@@ -165,6 +181,7 @@ export function getNextBestActions(
       confidence: "official",
       provenance: "unavailable",
       notes: ["Official player API does not expose building levels, resources, or builder availability."],
+      why: "The public API does not expose enough manual base data to rank this action more precisely.",
       kind: "hint",
     });
   }
@@ -181,6 +198,26 @@ export function getNextBestActions(
       (candidate.gate ?? 1) /
       ((normCost + 0.15) * (normTime + 0.15));
     if (candidate.affordable === true) candidate.score *= 1.25;
+  }
+  for (const candidate of candidates) {
+    if (candidate.kind !== "upgrade") continue;
+    const role = roles.units[candidate.subject] ?? roles.categories[candidate.category] ?? "useful progression";
+    const factors: string[] = [];
+    if (candidate.thCapLevel && candidate.thCapLevel > (candidate.targetLevel ?? 1) - 1) {
+      const gap = candidate.thCapLevel - ((candidate.targetLevel ?? 1) - 1);
+      factors.push(`${gap} level${gap === 1 ? "" : "s"} below your TH${player.townHallLevel} cap`);
+    }
+    if (candidate.notes.some((note) => note.includes("war army") || note.includes("home army") || note.includes("hero lineup"))) {
+      const fitNote = candidate.notes.find((note) => note.includes("war army") || note.includes("home army") || note.includes("hero lineup"))!;
+      factors.push(fitNote.replace(/\.$/, "").replace(/^./, (character) => character.toLowerCase()));
+    }
+    if (candidate.affordable === true) factors.push("affordable with entered resources");
+    else if (candidate.affordable === false) factors.push("above entered resources");
+    factors.push(`${durationLabel(candidate.rawTime ?? 0)} ${candidate.category === "lab upgrade" ? "in the laboratory" : "of upgrade time"}`);
+    if (candidate.category === "lab upgrade" && timerContext?.buildersBusy) factors.push("lab work while all builders are busy");
+    if (candidate.activeTimer) factors.push("already in progress (timer)");
+    if (goal !== "balanced") factors.push(`supports your ${goal} goal`);
+    candidate.why = `${candidate.subject} is ${role}; ${factors.slice(0, 4).join(", ")}.`;
   }
   for (const candidate of candidates.filter((item) => item.kind === "unlock")) {
     candidate.score = 0.75 / (1.15 * 1.15);

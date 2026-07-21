@@ -61,6 +61,13 @@ document.querySelector("#timerForm").addEventListener("submit", async event => {
     await load();
   } catch (error) { showToast(error.message); }
 });
+document.querySelectorAll("[data-duration]").forEach(button => button.addEventListener("click", () => {
+  document.querySelector("#timerDuration").value = button.dataset.duration;
+}));
+document.querySelectorAll("[data-builders]").forEach(button => button.addEventListener("click", () => {
+  document.querySelector("#buildersTotal").value = button.dataset.builders;
+  document.querySelector("#buildersFree").value = button.dataset.builders;
+}));
 document.querySelectorAll("[data-goal]").forEach(button => button.addEventListener("click", async () => {
   if (!currentPlayer) return showToast("Load your account first.");
   if (!sessionToken) return showToast("Log in to change your goal.");
@@ -103,6 +110,11 @@ async function load() {
     ]);
     currentPlayer = player;
     if (savedBase) writeBase(savedBase);
+    else {
+      const defaultBuilders = player.townHallLevel >= 14 ? 6 : 5;
+      document.querySelector("#buildersTotal").value = defaultBuilders;
+      document.querySelector("#buildersFree").value = defaultBuilders;
+    }
     renderIdentity(player, war);
     renderPlayer(player, accountPlan.accountDetails, clan, accountPlan.rushScore);
     renderHeroLineup(player, savedBase?.heroLineup || []);
@@ -185,7 +197,7 @@ function renderPlan(value) {
     try { await post(`/api/skip/${encodeURIComponent(playerTag.value.trim())}`, { key: event.currentTarget.dataset.unskipKey }, true, "DELETE"); await load(); }
     catch (error) { showToast(error.message); }
   }));
-  actions.innerHTML = (value.actions || []).map(item => `<article class="action"><h3>${escapeHtml(humanizeSlug(item.action))}</h3><p>${escapeHtml(humanizeSubject(item.subject))}${item.targetLevel ? ` → level ${escapeHtml(item.targetLevel)}` : ""}</p><p class="resource-line">${resourceCost(item.cost, item.resource)} · ${humanTime(item.timeSeconds)}</p><div><span class="badge">${escapeHtml(humanizeSlug(item.confidence))}</span><span class="badge">${escapeHtml(humanizeSlug(item.provenance))}</span>${item.affordable === false ? '<span class="badge warning">Unaffordable</span>' : ""}</div><small>${escapeHtml((item.notes || []).join(" "))}</small></article>`).join("");
+  actions.innerHTML = (value.actions || []).map(item => `<article class="action"><h3>${escapeHtml(humanizeSlug(item.action))}</h3><p class="why-line">${escapeHtml(item.why || "")}</p><p>${escapeHtml(humanizeSubject(item.subject))}${item.targetLevel ? ` → level ${escapeHtml(item.targetLevel)}` : ""}</p><p class="resource-line">${resourceCost(item.cost, item.resource)} · ${humanTime(item.timeSeconds)}</p><div><span class="badge">${escapeHtml(humanizeSlug(item.confidence))}</span><span class="badge">${escapeHtml(humanizeSlug(item.provenance))}</span>${item.affordable === false ? '<span class="badge warning">Unaffordable</span>' : ""}</div><small>${escapeHtml((item.notes || []).join(" "))}</small></article>`).join("");
   completion.innerHTML = `<h3>Account completion</h3><div class="progress"><span style="width:${safePercent(value.completion.overall)}%"></span></div><p>${Math.round(value.completion.overall * 100)}% overall</p>${Object.entries(value.completion.categories || {}).map(([name, percent]) => `<label class="bar-label">${escapeHtml(humanizeCategory(name))} <span>${Math.round(percent * 100)}%</span><div class="progress"><span style="width:${safePercent(percent)}%"></span></div></label>`).join("")}`;
 }
 
@@ -202,7 +214,7 @@ function renderRush(value) {
 
 function renderNext(action, target) {
   target.classList.remove("skeleton-block");
-  target.innerHTML = action ? `<div class="next-upgrade"><h3>Your next move</h3><p><strong>${escapeHtml(humanizeSlug(action.action))}</strong></p><p class="resource-line">${resourceCost(action.cost, action.resource)} · ${humanTime(action.timeSeconds)}</p><small>${escapeHtml((action.notes || []).join(" "))}</small><div class="next-move-buttons"><button type="button" data-done-key="${escapeHtml(action.key || "")}" class="gold-button">✓ Mark done</button><button type="button" data-skip-key="${escapeHtml(action.key || "")}" class="secondary">↩ Skip for now</button></div></div>` : "<div class=\"next-upgrade\"><h3>All caught up</h3><p>No remaining ranked actions.</p></div>";
+  target.innerHTML = action ? `<div class="next-upgrade"><h3>Your next move</h3><p><strong>${escapeHtml(humanizeSlug(action.action))}</strong></p><p class="why-line">${escapeHtml(action.why || "")}</p><p class="resource-line">${resourceCost(action.cost, action.resource)} · ${humanTime(action.timeSeconds)}</p><small>${escapeHtml((action.notes || []).join(" "))}</small><div class="next-move-buttons"><button type="button" data-done-key="${escapeHtml(action.key || "")}" class="gold-button">✓ Mark done</button><button type="button" data-skip-key="${escapeHtml(action.key || "")}" class="secondary">↩ Skip for now</button></div></div>` : "<div class=\"next-upgrade\"><h3>All caught up</h3><p>No remaining ranked actions.</p></div>";
   target.querySelector("[data-done-key]")?.addEventListener("click", async event => {
     try { await post(`/api/done/${encodeURIComponent(playerTag.value.trim())}`, { key: event.currentTarget.dataset.doneKey }, true); await load(); }
     catch (error) { showToast(error.message); }
@@ -249,7 +261,7 @@ function renderHeroLoadouts(player, saved) {
   if (!target) return;
   const equipment = player.heroEquipment?.length ? player.heroEquipment : (player.heroes || []).flatMap(hero => hero.equipment || []);
   const pets = player.pets?.length ? player.pets : (player.troops || []).filter(item => item.village !== "builderBase" && ["L.A.S.S.I", "Electro Owl", "Mighty Yak", "Unicorn", "Frosty", "Diggy", "Poison Lizard", "Phoenix", "Spirit Fox", "Angry Jelly", "Sneezy"].includes(item.name));
-  target.innerHTML = `<legend>My hero loadouts</legend>${(player.heroes || []).map(hero => { const selected = saved[hero.name] || {}; const ownEquipment = equipment.filter(item => hero.equipment?.some(entry => entry.name === item.name) || !hero.equipment).map(item => item.name); return `<div class="loadout-row"><strong>${escapeHtml(hero.name)}</strong><label>Equipment 1<select data-loadout-hero="${escapeHtml(hero.name)}" data-loadout-slot="equipment"><option value="">None</option>${ownEquipment.map(name => `<option ${selected.equipment?.[0] === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><label>Equipment 2<select data-loadout-hero="${escapeHtml(hero.name)}" data-loadout-slot="equipment"><option value="">None</option>${ownEquipment.map(name => `<option ${selected.equipment?.[1] === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><label>Pet<select data-loadout-hero="${escapeHtml(hero.name)}" data-loadout-slot="pet"><option value="">None</option>${pets.map(pet => `<option ${selected.pet === pet.name ? "selected" : ""}>${escapeHtml(pet.name)}</option>`).join("")}</select></label></div>`; }).join("")}`;
+  target.innerHTML = `<legend>My hero loadouts</legend>${(player.heroes || []).map(hero => { const ownEquipment = equipment.filter(item => hero.equipment?.some(entry => entry.name === item.name) || !hero.equipment).map(item => item.name); const selected = saved[hero.name] || { equipment: ownEquipment.slice(0, 2), pet: pets[0]?.name }; return `<div class="loadout-row"><strong>${escapeHtml(hero.name)}</strong><label>Equipment 1<select data-loadout-hero="${escapeHtml(hero.name)}" data-loadout-slot="equipment"><option value="">None</option>${ownEquipment.map(name => `<option ${selected.equipment?.[0] === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><label>Equipment 2<select data-loadout-hero="${escapeHtml(hero.name)}" data-loadout-slot="equipment"><option value="">None</option>${ownEquipment.map(name => `<option ${selected.equipment?.[1] === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><label>Pet<select data-loadout-hero="${escapeHtml(hero.name)}" data-loadout-slot="pet"><option value="">None</option>${pets.map(pet => `<option ${selected.pet === pet.name ? "selected" : ""}>${escapeHtml(pet.name)}</option>`).join("")}</select></label></div>`; }).join("")}`;
 }
 function renderPlayer(player, details, clan, rush) {
   profileHeader.innerHTML = `<div class="profile-heading"><div><p class="eyebrow">Account details</p><h2>${escapeHtml(player.name)}</h2><p>TH${escapeHtml(player.townHallLevel)} · ${formatNumber(player.trophies)} trophies</p></div><div class="heroes">${(player.heroes || []).map(hero => `<span>${escapeHtml(hero.name)} ${escapeHtml(hero.level)}</span>`).join("")}</div></div>`;
@@ -289,7 +301,7 @@ function setLoading(loading) { document.querySelector("#todayIdentity").classLis
 function showToast(message) { toast.textContent = message; toast.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 4200); }
 async function parse(response) { const body = await response.json(); if (!response.ok) throw new Error(body.error || "Request failed"); return body; }
 function humanTime(seconds) { if (!seconds) return "time n/a"; const days = Math.floor(seconds / 86400); const hours = Math.floor(seconds % 86400 / 3600); return `${days ? `${days}d ` : ""}${hours}h`; }
-function parseDuration(value) { const match = String(value).toLowerCase().match(/^(?:(\d+)\s*d)?\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?$/); if (!match || (!match[1] && !match[2] && !match[3])) throw new Error("Use a duration such as 1d 2h."); return Number(match[1] || 0) * 86400 + Number(match[2] || 0) * 3600 + Number(match[3] || 0) * 60; }
+function parseDuration(value) { const match = String(value).toLowerCase().match(/^(?:(\d+)\s*w)?\s*(?:(\d+)\s*d)?\s*(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?$/); if (!match || (!match[1] && !match[2] && !match[3] && !match[4])) throw new Error("Use a duration such as 1d 2h."); return Number(match[1] || 0) * 604800 + Number(match[2] || 0) * 86400 + Number(match[3] || 0) * 3600 + Number(match[4] || 0) * 60; }
 function timeUntil(value) { return humanTime(Math.max(0, Math.floor((Date.parse(value) - Date.now()) / 1000))); }
 function safePercent(value) { return Math.max(0, Math.min(100, Number(value) * 100 || 0)); }
 function formatNumber(value) { return typeof value === "number" ? new Intl.NumberFormat().format(value) : String(value); }

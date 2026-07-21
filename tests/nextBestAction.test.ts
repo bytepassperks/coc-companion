@@ -52,6 +52,7 @@ describe("next best action", () => {
     });
     const cheap = actions.find((item) => item.subject === "Cheap");
     expect(cheap?.notes).toContain("In your war army.");
+    expect(cheap?.why).toContain("in your war army");
   });
 
   it("keeps the selected TH16 army research above non-army lab items", () => {
@@ -91,11 +92,13 @@ describe("next best action", () => {
     const analysis = analyzeAccount(player, catalog);
     const actions = getNextBestActions(player, catalog, analysis, {
       goal: "war", warArmy: ["Cheap"], heroLineup: ["King"], buildersFree: 1, updatedAt: "",
-    }, { buildersBusy: false, activeLabels: ["Cheap"] });
+    }, { buildersBusy: true, activeLabels: ["Cheap"] });
     const king = actions.find((item) => item.subject === "King");
     const cheap = actions.find((item) => item.subject === "Cheap");
     expect(king?.notes).toContain("In your hero lineup.");
+    expect(king?.why).toContain("in your hero lineup");
     expect(cheap?.notes).toContain("Already in progress (timer).");
+    expect(cheap?.why).toContain("lab work while all builders are busy");
     expect(actions.find((item) => item.notes.includes("Already in progress (timer)."))).toBeDefined();
   });
 

@@ -309,6 +309,7 @@ export interface NextBestAction {
   confidence: "official" | "community_consensus" | "unverified";
   provenance: Provenance;
   notes: string[];
+  why: string;
   affordable?: boolean;
 }
 

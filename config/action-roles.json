@@ -1,0 +1,18 @@
+{
+  "categories": {
+    "hero upgrade": "hero power and war value",
+    "lab upgrade": "research progress for your offense",
+    "building upgrade": "base capacity or defense progress"
+  },
+  "units": {
+    "Valkyrie": "a strong Clan Castle and cleanup troop",
+    "Baby Dragon": "a flexible air damage and farming troop",
+    "Dragon": "a durable air offense troop",
+    "Balloon": "high-impact air damage against defenses",
+    "Minion": "a flexible cleanup and funnel troop",
+    "Revive Spell": "extra army sustain and recovery",
+    "Freeze Spell": "temporary control of key defenses",
+    "Lightning Spell": "reliable damage and funnel support",
+    "Battle Blimp": "a siege-machine delivery option for war attacks"
+  }
+}

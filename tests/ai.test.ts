@@ -8,7 +8,7 @@ describe("plan AI fallback", () => {
       analysis: {} as never,
       actions: [{
         action: "Upgrade King", category: "hero upgrade", subject: "King", score: 1,
-        confidence: "community_consensus", provenance: "calculated", notes: [],
+        confidence: "community_consensus", provenance: "calculated", notes: [], why: "A test action.",
       }],
       armySuggestions: [],
     }, { get: vi.fn().mockResolvedValue(null), put: vi.fn() });
@@ -41,7 +41,7 @@ describe("AI model fallback chain", () => {
     const result = await generatePlan({ run } as never, {
       player: { name: "Test", tag: "#2PYC", townHallLevel: 7 },
       analysis: {} as never,
-      actions: [{ action: "Upgrade King", category: "hero upgrade", subject: "King", score: 1, confidence: "community_consensus", provenance: "calculated", notes: [], cost: 10 }],
+      actions: [{ action: "Upgrade King", category: "hero upgrade", subject: "King", score: 1, confidence: "community_consensus", provenance: "calculated", notes: [], why: "A test action.", cost: 10 }],
       armySuggestions: [],
     }, { get: vi.fn().mockResolvedValue(null), put: vi.fn() }, 8000, "primary-model", ["fallback-model"]);
     expect(result.used).toBe(true);
