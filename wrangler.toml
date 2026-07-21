@@ -5,11 +5,12 @@ compatibility_date = "2026-07-21"
 [vars]
 AI_DAILY_CAP = "8000"
 COC_API_BASE_URL = "https://cocproxy.royaleapi.dev/v1"
+AI_MODEL = "@cf/meta/llama-3.2-3b-instruct"
 
 [[kv_namespaces]]
 binding = "STATE"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
-preview_id = "REPLACE_WITH_KV_PREVIEW_ID"
+id = "6645957a2ea8468280ba0fca7b49c148"
+preview_id = "6645957a2ea8468280ba0fca7b49c148"
 
 [ai]
 binding = "AI"

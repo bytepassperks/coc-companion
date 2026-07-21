@@ -6,4 +6,5 @@ export interface Env {
   COC_API_KEY: string;
   COC_API_BASE_URL?: string;
   AI_DAILY_CAP?: string;
+  AI_MODEL?: string;
 }

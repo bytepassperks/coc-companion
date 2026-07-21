@@ -58,7 +58,7 @@ export class CocClient {
   private readonly baseUrl: string;
 
   constructor(private readonly options: CocClientOptions) {
-    this.fetcher = options.fetcher ?? fetch;
+    this.fetcher = options.fetcher ?? ((input, init) => fetch(input, init));
     this.sleep = options.sleep ?? defaultSleep;
     this.random = options.random ?? Math.random;
     this.maxRetries = options.maxRetries ?? 3;
@@ -97,7 +97,7 @@ export class CocClient {
   private async get<T>(path: string): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const cached = await this.cache?.get(url);
-    if (cached !== undefined) return cached as T;
+    if (cached !== undefined && cached !== null) return cached as T;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
       const response = await this.fetcher(url, {

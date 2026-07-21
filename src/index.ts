@@ -2,7 +2,7 @@ import upgradeConfig from "../config/upgrade-priorities.json";
 import notificationConfig from "../config/notifications.json";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { CocClient, CocApiError, type CacheLayer } from "./cocClient";
-import { answerQuestion, summarize } from "./ai";
+import { answerQuestion, DEFAULT_AI_MODEL } from "./ai";
 import { collectNotifications } from "./notifications";
 import { getRecommendations } from "./recommendationEngine";
 import type { Env } from "./workerTypes";
@@ -45,7 +45,7 @@ export default {
         const snapshot = await env.STATE.get(`state:${tag.replace(/^#/, "")}`, "json") as import("./types").Snapshot | null;
         const player = snapshot?.player ?? await client.getPlayer(tag);
         const recommendations = getRecommendations(player, upgradeConfig as unknown as Parameters<typeof getRecommendations>[1]);
-        const response = await answerQuestion(env.AI, body.question, snapshot ?? { fetchedAt: new Date().toISOString(), player }, recommendations, env.STATE, Number(env.AI_DAILY_CAP ?? 8000));
+        const response = await answerQuestion(env.AI, body.question, snapshot ?? { fetchedAt: new Date().toISOString(), player }, recommendations, env.STATE, Number(env.AI_DAILY_CAP ?? 8000), env.AI_MODEL ?? DEFAULT_AI_MODEL);
         return json({ answer: response }, cors);
       }
       return json({ error: "Not found" }, cors, 404);

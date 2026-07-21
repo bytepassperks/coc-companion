@@ -108,9 +108,20 @@
       { "category": "key_defenses", "order": 70, "reason": "Prioritize Monolith, Spell Towers, and high-impact defenses after offense.", "confidence": "community_consensus" },
       { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses after the core plan.", "confidence": "community_consensus" },
       { "category": "walls", "order": 90, "reason": "Use overflow resources on walls.", "confidence": "community_consensus" }
+    ],
+    "default": [
+      { "category": "clan_castle", "order": 10, "reason": "A bigger Clan Castle means stronger donated troops for every attack and defense.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running so your army never falls behind your Town Hall.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "More housing space is a direct offensive multiplier at every Town Hall.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Hero levels are the strongest long-term investment; upgrade whenever downtime is acceptable.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade barracks, spell factory, and army-enabling buildings for your chosen composition.", "confidence": "community_consensus" },
+      { "category": "key_defenses", "order": 60, "reason": "Prioritize splash and high-impact defenses (Mortars, Wizard Towers, Air Defenses) before generic ones.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 70, "reason": "Complete remaining defenses after the core plan.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 80, "reason": "Use overflow resources on walls without delaying offense.", "confidence": "community_consensus" }
     ]
   },
   "meta_notes": {
+    "default": "Generic offense-first order used for Town Halls below TH10 or without a specific entry.",
     "TH10": "Current 2026 TH10 meta ranking was not independently verified; use offense-first planning.",
     "TH11": "Current 2026 TH11 meta ranking is unverified because requested wiki pages were blocked.",
     "TH12": "Current 2026 TH12 meta ranking is unverified because requested wiki pages were blocked.",

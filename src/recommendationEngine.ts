@@ -16,7 +16,7 @@ export interface UpgradeConfig {
 }
 
 export function getRecommendations(player: Player, config: UpgradeConfig): Recommendation[] {
-  const entries = config.priorities[`TH${player.townHallLevel}`] ?? [];
+  const entries = config.priorities[`TH${player.townHallLevel}`] ?? config.priorities.default ?? [];
   const recommendations: Recommendation[] = [];
   const heroes = player.heroes ?? [];
   const troops = player.troops ?? [];

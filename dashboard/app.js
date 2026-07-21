@@ -5,7 +5,7 @@ const overview = document.querySelector("#overview");
 const recommendations = document.querySelector("#recommendations");
 const feed = document.querySelector("#feed");
 const answer = document.querySelector("#answer");
-apiBase.value = localStorage.getItem("coc-api-base") || "";
+apiBase.value = localStorage.getItem("coc-api-base") || "https://coc-companion.getlaunchpod.workers.dev";
 playerTag.value = localStorage.getItem("coc-player-tag") || "";
 
 document.querySelector("#load").addEventListener("click", async () => {
