@@ -17,6 +17,9 @@ import { authenticateUser, bearerToken, createSession, destroySession, registerU
 import { loadCatalog } from "./catalogLoader";
 import { collectWatched } from "./collector";
 import { loadArtifact, predictWar } from "./model";
+import { activeTimers, expireTimers, processTimers, timerId, validateTimerInput } from "./timers";
+import { calculateRushScore } from "./rushScore";
+import { adviseEquipment } from "./equipmentAdvisor";
 
 class ValidationError extends Error {}
 
@@ -88,6 +91,38 @@ export default {
         await env.STATE.put(key, JSON.stringify(next));
         await env.STATE.delete(`plan:${normalized}`);
         return json(next, cors);
+      }
+      const timerMatch = url.pathname.match(/^\/api\/timers\/([^/]+)$/);
+      if (timerMatch && request.method === "GET") {
+        const tag = decodeURIComponent(timerMatch[1]);
+        assertTag(tag);
+        const normalized = tag.replace(/^#/, "");
+        const timers = await processTimers(tag, env.STATE);
+        return json(activeTimers(timers), cors);
+      }
+      if (timerMatch && (request.method === "POST" || request.method === "DELETE")) {
+        if (!await requireSession(request, env)) return unauthorized(cors);
+        const tag = decodeURIComponent(timerMatch[1]);
+        assertTag(tag);
+        const normalized = tag.replace(/^#/, "");
+        const current = await processTimers(tag, env.STATE);
+        if (request.method === "DELETE") {
+          const body = await parseJson(request) as { id?: string } | null;
+          if (!body?.id) throw new ValidationError("Timer id is required");
+          const next = current.filter((timer) => timer.id !== body.id);
+          await env.STATE.put(`timers:${normalized}`, JSON.stringify(next));
+          return json(activeTimers(next), cors);
+        }
+        if (activeTimers(current).length >= 12) throw new ValidationError("A maximum of 12 active timers is allowed");
+        let input;
+        try {
+          input = validateTimerInput(await parseJson(request));
+        } catch (error) {
+          throw new ValidationError(error instanceof Error ? error.message : "Invalid timer");
+        }
+        const next = [...current, { ...input, id: timerId(), startedAt: new Date().toISOString(), notified: false }];
+        await env.STATE.put(`timers:${normalized}`, JSON.stringify(next));
+        return json(activeTimers(next), cors, 201);
       }
       const warMatch = url.pathname.match(/^\/api\/war\/([^/]+)$/);
       if (warMatch && request.method === "GET") {
@@ -169,6 +204,30 @@ export default {
         const rank = values.filter((value) => value <= (player.trophies ?? 0)).length;
         return json({ state: "ready", sampleSize: values.length, percentiles: { trophies: Math.round(rank / values.length * 100) }, comparable: { trophies: player.trophies, townHallLevel: player.townHallLevel } }, cors);
       }
+      const rushMatch = url.pathname.match(/^\/api\/rush\/([^/]+)$/);
+      if (rushMatch && request.method === "GET") {
+        const tag = decodeURIComponent(rushMatch[1]);
+        assertTag(tag);
+        const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
+        const player = await client.getPlayer(tag);
+        const loaded = await loadCatalog(env.STATE);
+        return json({ ...calculateRushScore(player, analyzeAccount(player, loaded.catalog), loaded.catalog), catalogMeta: loaded.meta }, cors);
+      }
+      const equipmentMatch = url.pathname.match(/^\/api\/equipment\/([^/]+)$/);
+      if (equipmentMatch && request.method === "GET") {
+        const tag = decodeURIComponent(equipmentMatch[1]);
+        assertTag(tag);
+        const goal = new URL(request.url).searchParams.get("goal") ?? "balanced";
+        if (!["war", "farm", "trophy", "balanced"].includes(goal)) throw new ValidationError("Invalid equipment goal");
+        const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
+        const player = await client.getPlayer(tag);
+        const base = await env.STATE.get(`base:${tag.replace(/^#/, "")}`, "json") as BaseState | null;
+        const ore = base && (base.oreShiny !== undefined || base.oreGlowy !== undefined || base.oreStarry !== undefined)
+          ? { shiny: base.oreShiny, glowy: base.oreGlowy, starry: base.oreStarry }
+          : undefined;
+        const plan = adviseEquipment(player, goal, ore, base?.heroLineup ?? []);
+        return json({ goal, ore, advice: plan.equipment, pets: plan.pets, unknownEquipment: plan.unknownEquipment, provenance: "equipment-meta v1 dated 2026-07-21" }, cors);
+      }
       const baseMatch = url.pathname.match(/^\/api\/base\/([^/]+)$/);
       if (baseMatch && (request.method === "GET" || request.method === "POST")) {
         const tag = decodeURIComponent(baseMatch[1]);
@@ -234,7 +293,10 @@ export default {
         const analysis = analyzeAccount(snapshot.player, loaded.catalog);
         const done = (await env.STATE.get<string[]>(`done:${normalized}`, "json")) ?? [];
         const skipped = (await env.STATE.get<string[]>(`skip:${normalized}`, "json")) ?? [];
-        const rankedActions = getNextBestActions(snapshot.player, loaded.catalog, analysis, base ?? undefined)
+        const timers = await processTimers(tag, env.STATE);
+        const builderCount = base?.buildersTotal ?? 0;
+        const buildersBusy = activeTimers(timers).filter((timer) => timer.kind === "builder").length >= builderCount && builderCount > 0;
+        const rankedActions = getNextBestActions(snapshot.player, loaded.catalog, analysis, base ?? undefined, { buildersBusy })
           .map((action) => ({ ...action, key: actionKey(action) }))
           .filter((action) => !done.includes(action.key));
         const activeActions = rankedActions.filter((action) => !skipped.includes(action.key));
@@ -247,6 +309,7 @@ export default {
           player: snapshot.player,
           analysis,
           actions,
+          armies: { war: base?.warArmy, home: base?.homeArmy, sameArmy: base?.sameArmy },
           armySuggestions: (upgradeConfig as { army_comp_suggestions?: Record<string, string[]> }).army_comp_suggestions?.[`TH${snapshot.player.townHallLevel}`],
         }, env.STATE, Number(env.AI_DAILY_CAP ?? 8000), configuredAiModels(env)[0], configuredAiModels(env).slice(1));
         const plan = {
@@ -264,6 +327,11 @@ export default {
               ? snapshot.player.heroEquipment
               : snapshot.player.heroes?.flatMap((hero) => hero.equipment ?? []) ?? [],
           },
+          timers: activeTimers(timers),
+          rushScore: calculateRushScore(snapshot.player, analysis, loaded.catalog),
+          equipmentAdvice: adviseEquipment(snapshot.player, base?.goal ?? "balanced", base && (base.oreShiny !== undefined || base.oreGlowy !== undefined || base.oreStarry !== undefined)
+            ? { shiny: base.oreShiny, glowy: base.oreGlowy, starry: base.oreStarry }
+            : undefined, base?.heroLineup ?? []),
           catalogMeta: loaded.meta,
           aiReview: ai.review,
           completedKeys: done,
@@ -292,6 +360,7 @@ export default {
       watchedTags.push(tag);
       const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL });
       const result = await collectNotifications(`#${tag}`, client, env.STATE, notificationConfig);
+      await processTimers(`#${tag}`, env.STATE);
       snapshots.push(result.snapshot);
     }
     if (env.DATA) {
@@ -372,12 +441,37 @@ function validateBase(input: unknown): BaseState {
       buildingLevels[name] = levels as number[];
     }
   }
+  const oreShiny = number(body.oreShiny, "oreShiny");
+  const oreGlowy = number(body.oreGlowy, "oreGlowy");
+  const oreStarry = number(body.oreStarry, "oreStarry");
+  let heroLineup: string[] | undefined;
+  if (body.heroLineup !== undefined) {
+    if (!Array.isArray(body.heroLineup) || body.heroLineup.length > 4 || body.heroLineup.some((name) => typeof name !== "string" || !name.trim())) {
+      throw new ValidationError("heroLineup must contain up to 4 hero names");
+    }
+    heroLineup = [...new Set(body.heroLineup.map((name) => name.trim()))];
+  }
+  const list = (value: unknown, name: string) => {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value) || value.length > 12 || value.some((item) => typeof item !== "string" || !item.trim())) throw new ValidationError(`${name} must contain up to 12 unit names`);
+    return [...new Set(value.map((item) => item.trim()))];
+  };
+  const warArmy = list(body.warArmy, "warArmy");
+  const homeArmy = list(body.homeArmy, "homeArmy");
+  const sameArmy = body.sameArmy === undefined ? false : Boolean(body.sameArmy);
   return {
     buildersTotal: number(body.buildersTotal, "buildersTotal"),
     buildersFree: number(body.buildersFree, "buildersFree"),
     labBusy: body.labBusy === undefined ? undefined : Boolean(body.labBusy),
     resources: parsedResources,
     goal: goal as BaseState["goal"],
+    oreShiny,
+    oreGlowy,
+    oreStarry,
+    heroLineup,
+    warArmy,
+    homeArmy: sameArmy ? warArmy : homeArmy,
+    sameArmy,
     buildingLevels,
     updatedAt: new Date().toISOString(),
   };

@@ -114,6 +114,7 @@ export async function generatePlan(
     analysis: AccountAnalysis;
     actions: NextBestAction[];
     armySuggestions: unknown;
+    armies?: { war?: string[]; home?: string[]; sameArmy?: boolean };
   },
   usage: AiUsageStore,
   dailyCap = 8000,
@@ -140,6 +141,7 @@ export async function generatePlan(
         timeSeconds: action.timeSeconds,
       })),
     armySuggestions: input.armySuggestions,
+    armies: input.armies,
   });
   const date = new Date().toISOString().slice(0, 10);
   const key = `ai_usage:${date}`;

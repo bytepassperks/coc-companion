@@ -33,6 +33,19 @@ describe("watch routes", () => {
     expect(response.status).toBe(401);
     const skip = await worker.fetch(new Request("https://example.test/api/skip/%232PYC", { method: "POST", body: JSON.stringify({ key: "x" }) }), testEnv as never);
     expect(skip.status).toBe(401);
+    const timer = await worker.fetch(new Request("https://example.test/api/timers/%232PYC", { method: "POST", body: JSON.stringify({ kind: "builder", label: "Tower", durationSeconds: 3600 }) }), testEnv as never);
+    expect(timer.status).toBe(401);
+  });
+
+  it("stores a valid manual timer", async () => {
+    const testEnv = env();
+    const response = await worker.fetch(new Request("https://example.test/api/timers/%232PYC", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer test-token" },
+      body: JSON.stringify({ kind: "builder", label: "Tower", durationSeconds: 3600 }),
+    }), testEnv as never);
+    expect(response.status).toBe(201);
+    expect(testEnv.STATE.put).toHaveBeenCalledWith("timers:2PYC", expect.stringContaining('"label":"Tower"'));
   });
 
   it("registers and removes a watched tag", async () => {

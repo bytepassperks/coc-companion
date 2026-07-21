@@ -2,6 +2,14 @@
 
 ## 2026-07-21
 
+- Added manual upgrade timers with authenticated CRUD routes, cron completion
+  notifications, active-builder ranking context, rushed-base readiness scoring,
+  and dated advisory equipment/pet recommendations.
+- Added manual shiny/glowy/starry ore balances, breakpoint-aware equipment
+  planning, hero lineup selection, and pet pairing advice. Added manual war/home
+  army selectors; selected army research receives a deterministic ranking boost
+  and is supplied as context to the AI review panel. All remain advisory-only.
+
 - Added the advisory-only CoC Strategist ML foundation: bounded public-data
   collection to R2, point-in-time attack events, validated JSON model serving
   with rollback and heuristic fallback, war prediction and population

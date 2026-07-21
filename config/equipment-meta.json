@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "dated": "2026-07-21",
+  "sourceNote": "Curated July 2026 advisory priorities; validate against current strategy consensus before spending ore.",
+  "heroes": {
+    "Barbarian King": {
+      "war": ["Giant Gauntlet", "Snake Bracelet"],
+      "farm": ["Spiky Ball", "Snake Bracelet"],
+      "trophy": ["Giant Gauntlet", "Spiky Ball"],
+      "balanced": ["Giant Gauntlet", "Snake Bracelet"]
+    },
+    "Archer Queen": {
+      "war": ["Frozen Arrow", "Healer Puppet"],
+      "farm": ["Frozen Arrow", "Giant Arrow"],
+      "trophy": ["Frozen Arrow", "Magic Mirror"],
+      "balanced": ["Frozen Arrow", "Healer Puppet"]
+    },
+    "Grand Warden": {
+      "war": ["Fireball", "Lavaloon Puppet"],
+      "farm": ["Eternal Tome", "Life Gem"],
+      "trophy": ["Fireball", "Eternal Tome"],
+      "balanced": ["Fireball", "Eternal Tome"]
+    },
+    "Royal Champion": {
+      "war": ["Rocket Spear", "Electro Boots"],
+      "farm": ["Haste Vial", "Rocket Spear"],
+      "trophy": ["Rocket Spear", "Electro Boots"],
+      "balanced": ["Rocket Spear", "Electro Boots"]
+    },
+    "Minion Prince": {
+      "war": ["Dark Orb", "Metal Pants"],
+      "farm": ["Dark Orb", "Metal Pants"],
+      "trophy": ["Dark Orb", "Metal Pants"],
+      "balanced": ["Dark Orb", "Metal Pants"]
+    }
+  },
+  "breakpoints": [18, 21, 24, 27],
+  "equipmentBreakpoints": {
+    "Frozen Arrow": [18, 21, 24, 27],
+    "Giant Arrow": [18, 21, 24, 27],
+    "Giant Gauntlet": [18, 21, 24, 27],
+    "Snake Bracelet": [18, 21, 24, 27],
+    "Healer Puppet": [18, 21, 24, 27],
+    "Fireball": [18, 21, 24, 27],
+    "Lavaloon Puppet": [18, 21, 24, 27],
+    "Rocket Spear": [18, 21, 24, 27],
+    "Electro Boots": [18, 21, 24, 27],
+    "Dark Orb": [18, 21, 24, 27],
+    "Metal Pants": [18, 21, 24, 27]
+  },
+  "petPairings": {
+    "Barbarian King": { "war": ["Phoenix", "Angry Jelly"], "farm": ["Mighty Yak", "L.A.S.S.I"], "balanced": ["Phoenix", "Mighty Yak"] },
+    "Archer Queen": { "war": ["Unicorn", "Frosty"], "farm": ["Unicorn", "L.A.S.S.I"], "balanced": ["Unicorn", "Frosty"] },
+    "Grand Warden": { "war": ["Phoenix", "Electro Owl"], "farm": ["Electro Owl", "Phoenix"], "balanced": ["Phoenix", "Electro Owl"] },
+    "Royal Champion": { "war": ["Spirit Fox", "Diggy"], "farm": ["Diggy", "Spirit Fox"], "balanced": ["Spirit Fox", "Diggy"] },
+    "Minion Prince": { "war": ["Angry Jelly", "Poison Lizard"], "farm": ["Angry Jelly", "Poison Lizard"], "balanced": ["Angry Jelly", "Poison Lizard"] }
+  },
+  "petUpgradeTimeHours": { "L.A.S.S.I": 24, "Electro Owl": 24, "Mighty Yak": 24, "Unicorn": 36, "Frosty": 36, "Diggy": 36, "Poison Lizard": 36, "Phoenix": 48, "Spirit Fox": 48, "Angry Jelly": 48, "Sneezy": 48 },
+  "petMaxLevels": { "L.A.S.S.I": 15, "Electro Owl": 15, "Mighty Yak": 15, "Unicorn": 15, "Frosty": 15, "Diggy": 15, "Poison Lizard": 15, "Phoenix": 15, "Spirit Fox": 15, "Angry Jelly": 15, "Sneezy": 15 },
+  "oreCosts": {
+    "Frozen Arrow": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Giant Arrow": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Giant Gauntlet": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Snake Bracelet": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Healer Puppet": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Fireball": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Lavaloon Puppet": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Rocket Spear": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Electro Boots": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Dark Orb": { "17": { "shiny": 120, "glowy": 60, "starry": 0 } },
+    "Metal Pants": { "17": { "shiny": 120, "glowy": 60, "starry": 0 }, "18": { "shiny": 120, "glowy": 60, "starry": 0 } }
+  },
+  "defaultOreCosts": {
+    "common": { "shiny": 120, "glowy": 60, "starry": 0 },
+    "epic": { "shiny": 120, "glowy": 60, "starry": 0 }
+  }
+}

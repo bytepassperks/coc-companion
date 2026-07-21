@@ -182,7 +182,7 @@ export interface Snapshot {
 
 export interface NotificationEvent {
   id: string;
-  type: "upgrade_completed" | "war_window_open" | "capital_raid_active" | "th_upgraded" | "war_attack";
+  type: "upgrade_completed" | "war_window_open" | "capital_raid_active" | "th_upgraded" | "war_attack" | "timer_completed";
   createdAt: string;
   message: string;
   data?: Record<string, string | number>;
@@ -284,6 +284,13 @@ export interface BaseState {
     darkElixir?: number;
   };
   goal?: "war" | "farm" | "trophy" | "balanced";
+  oreShiny?: number;
+  oreGlowy?: number;
+  oreStarry?: number;
+  heroLineup?: string[];
+  warArmy?: string[];
+  homeArmy?: string[];
+  sameArmy?: boolean;
   buildingLevels?: Record<string, number[]>;
   updatedAt: string;
 }
@@ -302,4 +309,13 @@ export interface NextBestAction {
   provenance: Provenance;
   notes: string[];
   affordable?: boolean;
+}
+
+export interface UpgradeTimer {
+  id: string;
+  kind: "builder" | "lab" | "pet" | "hero" | "other";
+  label: string;
+  startedAt: string;
+  endsAt: string;
+  notified: boolean;
 }

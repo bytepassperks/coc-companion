@@ -45,6 +45,15 @@ describe("next best action", () => {
     expect(actions.find((item) => item.subject === "King")?.affordable).toBe(false);
   });
 
+  it("boosts research for the selected army and explains the boost", () => {
+    const analysis = analyzeAccount(player, catalog);
+    const actions = getNextBestActions(player, catalog, analysis, {
+      goal: "war", warArmy: ["Cheap"], buildersFree: 1, updatedAt: "",
+    });
+    const cheap = actions.find((item) => item.subject === "Cheap");
+    expect(cheap?.notes).toContain("In your war army.");
+  });
+
   it("caps unlock actions and includes the prerequisite building", () => {
     const analysis = analyzeAccount(player, catalog);
     analysis.unlockable = Array.from({ length: 8 }, (_, index) => ({

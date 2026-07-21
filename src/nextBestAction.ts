@@ -17,6 +17,10 @@ type Candidate = NextBestAction & {
   confidenceFactor?: number;
 };
 
+export interface TimerContext {
+  buildersBusy: boolean;
+}
+
 const goalOf = (base?: BaseState) => base?.goal ?? "balanced";
 const resourceKey = (resource?: string) =>
   resource?.toLowerCase().includes("dark") ? "darkElixir" :
@@ -34,6 +38,7 @@ export function getNextBestActions(
   catalog: GameCatalog,
   analysis: AccountAnalysis,
   base?: BaseState,
+  timerContext?: TimerContext,
 ): NextBestAction[] {
   const goal = goalOf(base);
   const candidates: Candidate[] = [];
@@ -52,11 +57,18 @@ export function getNextBestActions(
       : undefined;
     if (affordable === false) notes.push("Not affordable with entered resources.");
     if (builder && base?.buildersFree === 0) notes.push("No free builder.");
+    if (timerContext?.buildersBusy && builder) notes.push("All builders are busy according to active timers; prioritize laboratory work while you wait.");
+    if (timerContext?.buildersBusy && !builder) notes.push("Active builder timers are full; this laboratory action can progress while builders are occupied.");
     if (!builder && base?.labBusy) notes.push("Laboratory is busy.");
     let strategic = category === "hero upgrade" ? 1.15 : 1;
     if (goal === "war" && category === "hero upgrade" && player.warPreference === "in") strategic *= 0.6;
     if (goal === "farm" && time <= 86400) strategic *= 1.25;
     if (goal === "farm" && cost <= 100_000) strategic *= 1.5;
+    const selectedArmy = base?.sameArmy ? base.warArmy : (goal === "war" ? base?.warArmy : base?.homeArmy);
+    if (!builder && selectedArmy?.includes(subject)) {
+      strategic *= 1.5;
+      notes.push(`In your ${goal === "war" ? "war" : "home"} army.`);
+    }
     candidates.push({
       action: `Upgrade ${subject}`,
       category,
@@ -75,7 +87,7 @@ export function getNextBestActions(
       rawTime: time,
       strategic,
       availability: affordable === false ? 0.65 : 1,
-      gate: builder && base?.buildersFree === 0 ? 0.3 : !builder && base?.labBusy ? 0.3 : 1,
+      gate: builder && (base?.buildersFree === 0 || timerContext?.buildersBusy) ? 0.3 : !builder && base?.labBusy ? 0.3 : 1,
       confidenceFactor: 0.9,
     });
   };
