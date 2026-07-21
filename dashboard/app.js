@@ -16,6 +16,8 @@ const authStatus = document.querySelector("#authStatus");
 const logoutButton = document.querySelector("#logout");
 const completedActions = document.querySelector("#completedActions");
 const completedList = document.querySelector("#completedList");
+const skippedActions = document.querySelector("#skippedActions");
+const skippedList = document.querySelector("#skippedList");
 const todayNextUpgrade = document.querySelector("#todayNextUpgrade");
 const planNextUpgrade = document.querySelector("#planNextUpgrade");
 const planEquipment = document.querySelector("#planEquipment");
@@ -85,7 +87,7 @@ async function load() {
     renderPlan(accountPlan);
     renderClanWar(war, clan, capital);
     renderFeed(notifications);
-    document.querySelector("#recommendations").innerHTML = recs.length ? recs.map(item => `<li><strong>${escapeHtml(item.subject)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(item.reason)}</small></li>`).join("") : "<li>No configured recommendations.</li>";
+    document.querySelector("#recommendations").innerHTML = recs.length ? recs.map(item => `<li><strong>${escapeHtml(humanizeSubject(item.subject))}${humanizeSubject(item.subject) === humanizeCategory(item.category) ? "" : ` <span class="recommendation-category">— ${escapeHtml(humanizeCategory(item.category))}</span>`}</strong><small>${escapeHtml(item.reason)}</small></li>`).join("") : "<li>No configured recommendations.</li>";
     document.querySelector("#goal").value = savedBase?.goal || document.querySelector("#goal").value;
     showToast("Account loaded.");
   } catch (error) {
@@ -104,17 +106,17 @@ function renderIdentity(player, war) {
   document.querySelector("#todayIdentity").innerHTML = identity;
   document.querySelector("#headerIdentity").innerHTML = identity;
   const chip = document.querySelector("#todayWarChip");
-  chip.textContent = war?.state ? `⚔ ${war.state}${war.endTime ? ` · ${timeUntil(war.endTime)}` : ""}` : "War status unavailable";
+  chip.textContent = war?.state ? `⚔ ${humanizeSlug(war.state)}${war.endTime ? ` · ${timeUntil(war.endTime)}` : ""}` : "War status unavailable";
   chip.classList.toggle("active", war?.state === "inWar" || war?.state === "preparation");
 }
 
 function renderFeed(notifications) {
-  const html = notifications.length ? notifications.slice(0, 8).map(item => `<li><strong>${escapeHtml(item.type)}</strong><small>${escapeHtml(item.message)}</small></li>`).join("") : "<li class=\"muted\">No notifications yet.</li>";
+  const html = notifications.length ? notifications.slice(0, 8).map(item => `<li><strong>${escapeHtml(humanizeSlug(item.type))}</strong><small>${escapeHtml(item.message)}</small></li>`).join("") : "<li class=\"muted\">No notifications yet.</li>";
   document.querySelector("#todayFeed").innerHTML = html;
 }
 
 function renderClanWar(war, clan, capital) {
-  warStats.innerHTML = war ? `<p><strong>${escapeHtml(war.state)}</strong>${war.endTime ? ` · ends ${escapeHtml(timeUntil(war.endTime))}` : ""}</p><p>Stars: ${war.sides?.map(side => `${escapeHtml(side.name)} ${escapeHtml(side.stars)}`).join(" · ") || "n/a"}</p><p>Destruction: ${war.sides?.map(side => `${escapeHtml(side.name)} ${escapeHtml(side.destructionPercentage)}%`).join(" · ") || "n/a"}</p><p>Attacks used: ${formatNumber(war.members?.reduce((sum, member) => sum + member.attacksUsed, 0) || 0)} · Unattacked: ${escapeHtml((war.unattacked || []).map(member => member.name).join(", ") || "none")}</p><small>${escapeHtml(war.message || "")}</small>` : "<p>No war data.</p>";
+  warStats.innerHTML = war ? `<p><strong>${escapeHtml(humanizeSlug(war.state))}</strong>${war.endTime ? ` · ends ${escapeHtml(timeUntil(war.endTime))}` : ""}</p><p>Stars: ${war.sides?.map(side => `${escapeHtml(side.name)} ${escapeHtml(side.stars)}`).join(" · ") || "n/a"}</p><p>Destruction: ${war.sides?.map(side => `${escapeHtml(side.name)} ${escapeHtml(side.destructionPercentage)}%`).join(" · ") || "n/a"}</p><p>Attacks used: ${formatNumber(war.members?.reduce((sum, member) => sum + member.attacksUsed, 0) || 0)} · Unattacked: ${escapeHtml((war.unattacked || []).map(member => member.name).join(", ") || "none")}</p><small>${escapeHtml(war.message || "")}</small>` : "<p>No war data.</p>";
   clanStats.innerHTML = clan ? `<p><strong>${escapeHtml(clan.name)}</strong> · level ${escapeHtml(clan.level || "n/a")}</p><p>War wins: ${formatNumber(clan.warWins || 0)} · Winstreak: ${formatNumber(clan.warWinstreak || 0)}</p><h3>Top donors</h3><ol>${(clan.topDonors || []).map(member => `<li>${escapeHtml(member.name)} · ${formatNumber(member.donations)} (${member.donationRatio === null ? "n/a" : escapeHtml(member.donationRatio.toFixed(2))})</li>`).join("")}</ol><small>${escapeHtml(clan.inactiveSignalNote || "")}</small>` : "<p>No clan data.</p>";
   capitalStats.innerHTML = capital ? `<p><strong>${escapeHtml(capital.state || "unknown")}</strong></p><p>Offensive loot: ${formatNumber(capital.offensiveLoot)} · Defensive loot: ${formatNumber(capital.defensiveLoot)}</p><p>Attacks: ${formatNumber(capital.totalAttacks)} · Raids completed: ${formatNumber(capital.raidsCompleted)} · Districts destroyed: ${formatNumber(capital.districtsDestroyed)}</p><p>Average loot/attack: ${formatNumber(Math.round(capital.averageLootPerAttack))}</p><h3>Top raiders</h3><ol>${(capital.topRaiders || []).map(member => `<li>${escapeHtml(member.name || "Unknown")} · ${formatNumber(member.loot)}</li>`).join("")}</ol>` : "<p>No capital data.</p>";
 }
@@ -131,23 +133,42 @@ function renderPlan(value) {
   renderNext(value.actions?.[0], planNextUpgrade);
   const completed = value.completedKeys || [];
   completedActions.classList.toggle("hidden", completed.length === 0);
-  completedList.innerHTML = completed.map(key => `<p><code>${escapeHtml(key)}</code> <button type="button" data-undone-key="${escapeHtml(key)}">Un-check</button></p>`).join("");
+  completedList.innerHTML = completed.map(key => `<p><code>${escapeHtml(humanizeActionKey(key))}</code> <button type="button" data-undone-key="${escapeHtml(key)}">Un-check</button></p>`).join("");
   completedList.querySelectorAll("[data-undone-key]").forEach(button => button.addEventListener("click", async event => {
     try { await post(`/api/done/${encodeURIComponent(playerTag.value.trim())}`, { key: event.currentTarget.dataset.undoneKey }, true, "DELETE"); await load(); }
     catch (error) { showToast(error.message); }
   }));
-  actions.innerHTML = (value.actions || []).map(item => `<article class="action"><h3>${escapeHtml(item.action)}</h3><p>${escapeHtml(item.subject)}${item.targetLevel ? ` → level ${escapeHtml(item.targetLevel)}` : ""}</p><p class="resource-line">${resourceCost(item.cost, item.resource)} · ${humanTime(item.timeSeconds)}</p><div><span class="badge">${escapeHtml(item.confidence)}</span><span class="badge">${escapeHtml(item.provenance)}</span>${item.affordable === false ? '<span class="badge warning">unaffordable</span>' : ""}</div><small>${escapeHtml((item.notes || []).join(" "))}</small></article>`).join("");
-  completion.innerHTML = `<h3>Account completion</h3><div class="progress"><span style="width:${safePercent(value.completion.overall)}%"></span></div><p>${Math.round(value.completion.overall * 100)}% overall</p>${Object.entries(value.completion.categories || {}).map(([name, percent]) => `<label class="bar-label">${escapeHtml(name)} <span>${Math.round(percent * 100)}%</span><div class="progress"><span style="width:${safePercent(percent)}%"></span></div></label>`).join("")}`;
+  const skipped = value.skippedKeys || [];
+  skippedActions.classList.toggle("hidden", skipped.length === 0);
+  skippedList.innerHTML = skipped.map(key => `<p><code>${escapeHtml(humanizeActionKey(key))}</code> <button type="button" data-unskip-key="${escapeHtml(key)}">Un-skip</button></p>`).join("");
+  skippedList.querySelectorAll("[data-unskip-key]").forEach(button => button.addEventListener("click", async event => {
+    try { await post(`/api/skip/${encodeURIComponent(playerTag.value.trim())}`, { key: event.currentTarget.dataset.unskipKey }, true, "DELETE"); await load(); }
+    catch (error) { showToast(error.message); }
+  }));
+  actions.innerHTML = (value.actions || []).map(item => `<article class="action"><h3>${escapeHtml(humanizeSlug(item.action))}</h3><p>${escapeHtml(humanizeSubject(item.subject))}${item.targetLevel ? ` → level ${escapeHtml(item.targetLevel)}` : ""}</p><p class="resource-line">${resourceCost(item.cost, item.resource)} · ${humanTime(item.timeSeconds)}</p><div><span class="badge">${escapeHtml(humanizeSlug(item.confidence))}</span><span class="badge">${escapeHtml(humanizeSlug(item.provenance))}</span>${item.affordable === false ? '<span class="badge warning">Unaffordable</span>' : ""}</div><small>${escapeHtml((item.notes || []).join(" "))}</small></article>`).join("");
+  completion.innerHTML = `<h3>Account completion</h3><div class="progress"><span style="width:${safePercent(value.completion.overall)}%"></span></div><p>${Math.round(value.completion.overall * 100)}% overall</p>${Object.entries(value.completion.categories || {}).map(([name, percent]) => `<label class="bar-label">${escapeHtml(humanizeCategory(name))} <span>${Math.round(percent * 100)}%</span><div class="progress"><span style="width:${safePercent(percent)}%"></span></div></label>`).join("")}`;
 }
 
 function renderNext(action, target) {
   target.classList.remove("skeleton-block");
-  target.innerHTML = action ? `<div class="next-upgrade"><h3>Your next move</h3><p><strong>${escapeHtml(action.action)}</strong></p><p class="resource-line">${resourceCost(action.cost, action.resource)} · ${humanTime(action.timeSeconds)}</p><small>${escapeHtml((action.notes || []).join(" "))}</small><button type="button" data-done-key="${escapeHtml(action.key || "")}" class="gold-button">✓ Mark done</button></div>` : "<div class=\"next-upgrade\"><h3>All caught up</h3><p>No remaining ranked actions.</p></div>";
+  target.innerHTML = action ? `<div class="next-upgrade"><h3>Your next move</h3><p><strong>${escapeHtml(humanizeSlug(action.action))}</strong></p><p class="resource-line">${resourceCost(action.cost, action.resource)} · ${humanTime(action.timeSeconds)}</p><small>${escapeHtml((action.notes || []).join(" "))}</small><div class="next-move-buttons"><button type="button" data-done-key="${escapeHtml(action.key || "")}" class="gold-button">✓ Mark done</button><button type="button" data-skip-key="${escapeHtml(action.key || "")}" class="secondary">↩ Skip for now</button></div></div>` : "<div class=\"next-upgrade\"><h3>All caught up</h3><p>No remaining ranked actions.</p></div>";
   target.querySelector("[data-done-key]")?.addEventListener("click", async event => {
     try { await post(`/api/done/${encodeURIComponent(playerTag.value.trim())}`, { key: event.currentTarget.dataset.doneKey }, true); await load(); }
     catch (error) { showToast(error.message); }
   });
+  target.querySelector("[data-skip-key]")?.addEventListener("click", async event => {
+    try { await post(`/api/skip/${encodeURIComponent(playerTag.value.trim())}`, { key: event.currentTarget.dataset.skipKey }, true); await load(); }
+    catch (error) { showToast(error.message); }
+  });
 }
+
+function humanizeCategory(value) {
+  const labels = { heroes_equipment: "Heroes & equipment", offense_buildings: "Offense buildings", th_weapon: "Town Hall weapon", key_defenses: "Key defenses", remaining_defenses: "Remaining defenses", army_camps: "Army Camps", walls: "Walls", laboratory: "Lab research", clan_castle: "Clan Castle" };
+  return labels[value] || humanizeSlug(value);
+}
+function humanizeSubject(value) { return humanizeSlug(value); }
+function humanizeSlug(value) { return String(value).replaceAll("_", " ").replace(/\s+/g, " ").trim().replace(/\b\w/g, character => character.toUpperCase()); }
+function humanizeActionKey(value) { const parts = String(value).split(":"); return `${humanizeSlug(parts[0])}: ${humanizeSubject(parts[1] || "")}${parts[2] && parts[2] !== "unlock" ? ` → level ${parts[2]}` : ""}`; }
 
 function renderPlayer(player, details, clan) {
   profileHeader.innerHTML = `<div class="profile-heading"><div><p class="eyebrow">Account details</p><h2>${escapeHtml(player.name)}</h2><p>TH${escapeHtml(player.townHallLevel)} · ${formatNumber(player.trophies)} trophies</p></div><div class="heroes">${(player.heroes || []).map(hero => `<span>${escapeHtml(hero.name)} ${escapeHtml(hero.level)}</span>`).join("")}</div></div>`;
@@ -174,7 +195,7 @@ function heroEquipmentLine(player) {
   const equipment = player.heroEquipment?.length ? player.heroEquipment : player.heroes?.flatMap(hero => hero.equipment || []) || [];
   return equipment.length ? `<span class="equipment-compact">${equipment.slice(0, 5).map(item => `${escapeHtml(item.name)} ${formatNumber(item.level)}${item.maxLevel === undefined ? "" : `/${formatNumber(item.maxLevel)}`}`).join(" · ")}</span>` : "";
 }
-function resourceCost(cost, resource) { if (cost === undefined) return "Manual input required"; const kind = resource === "darkElixir" ? "dark" : resource === "elixir" ? "elixir" : "gold"; return `<span class="resource-dot resource-${kind}"></span>${formatNumber(cost)} ${escapeHtml(resource || "resources")}`; }
+function resourceCost(cost, resource) { if (cost === undefined) return "Manual input required"; const normalized = String(resource || "").toLowerCase().replace(/[\s_]/g, ""); const kind = normalized === "darkelixir" ? "dark" : normalized === "elixir" ? "elixir" : "gold"; const labels = { darkelixir: "Dark Elixir", elixir: "Elixir", gold: "Gold" }; return `<span class="resource-dot resource-${kind}"></span>${formatNumber(cost)} ${escapeHtml(labels[normalized] || (resource ? humanizeSlug(resource) : "Resources"))}`; }
 function readBase() { const number = id => document.querySelector(`#${id}`).value === "" ? undefined : Number(document.querySelector(`#${id}`).value); return { buildersTotal: number("buildersTotal"), buildersFree: number("buildersFree"), labBusy: document.querySelector("#labBusy").checked, resources: { gold: number("gold"), elixir: number("elixir"), darkElixir: number("darkElixir") }, goal: document.querySelector("#goal").value }; }
 function writeBase(base) { for (const id of ["buildersTotal", "buildersFree"]) if (base[id] !== undefined) document.querySelector(`#${id}`).value = base[id]; for (const id of ["gold", "elixir", "darkElixir"]) if (base.resources?.[id] !== undefined) document.querySelector(`#${id}`).value = base.resources[id]; document.querySelector("#labBusy").checked = Boolean(base.labBusy); if (base.goal) document.querySelector("#goal").value = base.goal; document.querySelectorAll("[data-goal]").forEach(button => button.classList.toggle("active", button.dataset.goal === base.goal)); }
 async function ask(event, output = "#answer") { event.preventDefault(); const question = output === "#todayAnswer" ? document.querySelector("#todayQuestion").value : document.querySelector("#question").value; try { document.querySelector(output).textContent = (await post("/api/ask", { tag: playerTag.value.trim(), question })).answer; } catch (error) { showToast(error.message); } }

@@ -65,6 +65,28 @@ export default {
         await env.STATE.delete(`plan:${normalized}`);
         return json(next, cors);
       }
+      const skipMatch = url.pathname.match(/^\/api\/skip\/([^/]+)$/);
+      if (skipMatch && request.method === "GET") {
+        const tag = decodeURIComponent(skipMatch[1]);
+        assertTag(tag);
+        return json((await env.STATE.get<string[]>(`skip:${tag.replace(/^#/, "")}`, "json")) ?? [], cors);
+      }
+      if (skipMatch && (request.method === "POST" || request.method === "DELETE")) {
+        if (!await requireSession(request, env)) return unauthorized(cors);
+        const tag = decodeURIComponent(skipMatch[1]);
+        assertTag(tag);
+        const normalized = tag.replace(/^#/, "");
+        const body = await parseJson(request) as { key?: string } | null;
+        if (!body || typeof body.key !== "string" || !body.key) return json({ error: "key is required" }, cors, 400);
+        const key = `skip:${normalized}`;
+        const current = (await env.STATE.get<string[]>(key, "json")) ?? [];
+        const next = request.method === "POST"
+          ? [...new Set([...current, body.key])]
+          : current.filter((item) => item !== body.key);
+        await env.STATE.put(key, JSON.stringify(next));
+        await env.STATE.delete(`plan:${normalized}`);
+        return json(next, cors);
+      }
       const warMatch = url.pathname.match(/^\/api\/war\/([^/]+)$/);
       if (warMatch && request.method === "GET") {
         const clanTag = decodeURIComponent(warMatch[1]);
@@ -162,9 +184,16 @@ export default {
         const loaded = await loadCatalog(env.STATE);
         const analysis = analyzeAccount(snapshot.player, loaded.catalog);
         const done = (await env.STATE.get<string[]>(`done:${normalized}`, "json")) ?? [];
-        const actions = getNextBestActions(snapshot.player, loaded.catalog, analysis, base ?? undefined)
+        const skipped = (await env.STATE.get<string[]>(`skip:${normalized}`, "json")) ?? [];
+        const rankedActions = getNextBestActions(snapshot.player, loaded.catalog, analysis, base ?? undefined)
           .map((action) => ({ ...action, key: actionKey(action) }))
           .filter((action) => !done.includes(action.key));
+        const activeActions = rankedActions.filter((action) => !skipped.includes(action.key));
+        const onlySkipped = activeActions.length === 0 && rankedActions.length > 0;
+        const actions = [...(onlySkipped ? [] : activeActions), ...(onlySkipped ? rankedActions : rankedActions.filter((action) => skipped.includes(action.key)))]
+          .map((action) => onlySkipped && skipped.includes(action.key)
+            ? { ...action, notes: [...(action.notes ?? []), "Previously skipped"] }
+            : action);
         const ai = await generatePlan(env.AI, {
           player: snapshot.player,
           analysis,
@@ -188,6 +217,7 @@ export default {
           },
           catalogMeta: loaded.meta,
           completedKeys: done,
+          skippedKeys: skipped,
           generatedAt: new Date().toISOString(),
           aiUsed: ai.used,
         };

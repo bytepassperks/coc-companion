@@ -44,3 +44,6 @@
   and bundled fallback, TH-capped recommendation text, graceful handling for
   payload entities not yet present in the catalog, and hero-equipment display
   in account and plan contexts.
+- Added authenticated “skip for now” checklist actions with KV persistence,
+  plan reordering, dashboard un-skip controls, and clearer humanized dashboard
+  copy for recommendation slugs, feed types, action labels, and identity text.

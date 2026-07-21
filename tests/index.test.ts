@@ -31,6 +31,8 @@ describe("watch routes", () => {
     testEnv.STATE.get.mockResolvedValue(null);
     const response = await worker.fetch(new Request("https://example.test/api/watch/%232PYC", { method: "POST" }), testEnv as never);
     expect(response.status).toBe(401);
+    const skip = await worker.fetch(new Request("https://example.test/api/skip/%232PYC", { method: "POST", body: JSON.stringify({ key: "x" }) }), testEnv as never);
+    expect(skip.status).toBe(401);
   });
 
   it("registers and removes a watched tag", async () => {
@@ -102,6 +104,30 @@ describe("watch routes", () => {
     const response = await worker.fetch(new Request("https://example.test/api/plan/%232PYC"), testEnv as never);
     const body = await response.json() as { actions: Array<{ key?: string }> };
     expect(body.actions.every((action) => action.key !== "hero upgrade:Barbarian King:2")).toBe(true);
+    vi.unstubAllGlobals();
+  });
+
+  it("stores skipped keys and moves them behind active actions", async () => {
+    const testEnv = env();
+    testEnv.STATE.get.mockImplementation((key: string) => {
+      if (key === "skip:2PYC") return Promise.resolve(["hero upgrade:Barbarian King:2"]);
+      if (key.startsWith("session:")) return Promise.resolve({ email: "test@example.com" });
+      return Promise.resolve(null);
+    });
+    const skip = await worker.fetch(new Request("https://example.test/api/skip/%232PYC", {
+      method: "POST", headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" }, body: JSON.stringify({ key: "hero upgrade:Barbarian King:2" }),
+    }), testEnv as never);
+    expect(skip.status).toBe(200);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      tag: "#2PYC", name: "Test", townHallLevel: 7,
+      heroes: [{ name: "Barbarian King", level: 1, maxLevel: 110 }],
+      troops: [{ name: "Barbarian", level: 1, maxLevel: 13, village: "home" }], spells: [],
+    }), { status: 200 })));
+    const response = await worker.fetch(new Request("https://example.test/api/plan/%232PYC"), testEnv as never);
+    const body = await response.json() as { actions: Array<{ key?: string }>; skippedKeys: string[] };
+    expect(body.skippedKeys).toContain("hero upgrade:Barbarian King:2");
+    expect(body.actions.length).toBeGreaterThan(1);
+    expect(body.actions.at(-1)?.key).toBe("hero upgrade:Barbarian King:2");
     vi.unstubAllGlobals();
   });
 });
