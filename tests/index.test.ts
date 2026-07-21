@@ -49,11 +49,21 @@ describe("watch routes", () => {
       spells: [],
     }), { status: 200, headers: { "Content-Type": "application/json" } })));
     const response = await worker.fetch(new Request("https://example.test/api/plan/%232PYC"), testEnv as never);
-    const body = await response.json() as { aiUsed: boolean; planText: string; actions: unknown[] };
+    const body = await response.json() as {
+      aiUsed: boolean;
+      planText: string;
+      actions: unknown[];
+      accountDetails?: { categories?: { heroes?: { items?: Array<{ name: string; level: number; thCapLevel: number; apiMaxLevel?: number }> } } };
+    };
     expect(response.status).toBe(200);
     expect(body.aiUsed).toBe(false);
     expect(body.planText).toContain("3-step plan");
     expect(body.actions.length).toBeGreaterThan(0);
+    expect(body.accountDetails?.categories?.heroes?.items?.[0]).toEqual(expect.objectContaining({
+      name: "Barbarian King",
+      level: 1,
+      thCapLevel: expect.any(Number),
+    }));
     vi.unstubAllGlobals();
   });
 });

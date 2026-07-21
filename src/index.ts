@@ -127,6 +127,10 @@ export default {
             overall: analysis.overallCompletion,
             categories: Object.fromEntries(Object.entries(analysis.categories).map(([name, value]) => [name, value.completion])),
           },
+          accountDetails: {
+            categories: analysis.categories,
+            achievements: analysis.achievements,
+          },
           generatedAt: new Date().toISOString(),
           aiUsed: ai.used,
         };

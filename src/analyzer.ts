@@ -73,6 +73,7 @@ function category(
       thCapLevel: cap,
       remainingLevels: Math.max(0, cap - level),
       provenance: observed ? "observed" : "calculated",
+      apiMaxLevel: observed?.maxLevel,
       ...(hasThLevels || observed?.maxLevel === undefined ? {} : { maxLevelSource: "api" as const }),
       nextUpgrade: observed ? next(entity, level, cap) : null,
     };

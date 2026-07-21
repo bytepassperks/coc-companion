@@ -2,6 +2,8 @@ const apiBase = document.querySelector("#apiBase");
 const playerTag = document.querySelector("#playerTag");
 const status = document.querySelector("#status");
 const overview = document.querySelector("#overview");
+const profileHeader = document.querySelector("#profileHeader");
+const accountDetails = document.querySelector("#accountDetails");
 const plan = document.querySelector("#plan");
 const planHeadline = document.querySelector("#planHeadline");
 const planText = document.querySelector("#planText");
@@ -47,7 +49,7 @@ async function load() {
       clanTag ? get(`/api/capital/${encodeURIComponent(clanTag)}`).catch(() => null) : Promise.resolve(null)
     ]);
     if (savedBase) writeBase(savedBase);
-    renderPlayer(player);
+    renderPlayer(player, accountPlan.accountDetails, clan);
     renderPlan(accountPlan);
     renderClanWar(war, clan, capital);
     recommendations.innerHTML = recs.length ? recs.map(item => `<li><strong>${escapeHtml(item.subject)}</strong><small>${escapeHtml(item.category)} · ${escapeHtml(item.reason)}</small></li>`).join("") : "<li>No configured recommendations.</li>";
@@ -64,9 +66,35 @@ function renderClanWar(war, clan, capital) {
   capitalStats.innerHTML = capital ? `<p><strong>${escapeHtml(capital.state || "unknown")}</strong></p><p>Offensive loot: ${escapeHtml(capital.offensiveLoot)} · Defensive loot: ${escapeHtml(capital.defensiveLoot)}</p><p>Attacks: ${escapeHtml(capital.totalAttacks)} · Raids completed: ${escapeHtml(capital.raidsCompleted)} · Districts destroyed: ${escapeHtml(capital.districtsDestroyed)}</p><p>Average loot/attack: ${escapeHtml(Math.round(capital.averageLootPerAttack))}</p><h3>Top raiders</h3><ol>${(capital.topRaiders || []).map(member => `<li>${escapeHtml(member.name || "Unknown")} · ${escapeHtml(member.loot)}</li>`).join("")}</ol>` : "<p>No capital data.</p>";
 }
 
-function renderPlayer(player) {
+function renderPlayer(player, details, clan) {
   overview.classList.remove("hidden");
-  overview.innerHTML = `<h2>${escapeHtml(player.name)}</h2><p>TH${escapeHtml(player.townHallLevel)} · ${escapeHtml(player.trophies || 0)} trophies</p><div class="heroes">${(player.heroes || []).map(hero => `<span>${escapeHtml(hero.name)} ${escapeHtml(hero.level)}</span>`).join("")}</div>`;
+  profileHeader.innerHTML = `<div class="profile-heading"><div><p class="eyebrow">Account details</p><h2>${escapeHtml(player.name)}</h2><p>TH${escapeHtml(player.townHallLevel)} · ${formatNumber(player.trophies)} trophies</p></div><div class="heroes">${(player.heroes || []).map(hero => `<span>${escapeHtml(hero.name)} ${escapeHtml(hero.level)}</span>`).join("")}</div></div>`;
+  const categories = details?.categories || {};
+  const achievements = player.achievements || [];
+  const completedAchievements = achievements.filter(item => item.value >= item.target).length;
+  const inProgress = achievements.filter(item => item.value < item.target).sort((a, b) => (b.value / b.target) - (a.value / a.target)).slice(0, 6);
+  const clanMember = clan?.members?.find(member => member.tag === player.tag);
+  const role = player.role || clanMember?.role;
+  const donations = player.donations ?? clanMember?.donations;
+  const received = player.donationsReceived ?? clanMember?.donationsReceived;
+  const labels = (player.labels || []).map(label => typeof label === "string" ? label : label?.name).filter(Boolean);
+  accountDetails.innerHTML = `<div class="stats-grid">${stat("Experience", player.expLevel)}${stat("Trophies", player.trophies, player.bestTrophies === undefined ? "" : `best ${formatNumber(player.bestTrophies)}`)}${stat("War stars", player.warStars)}${stat("Attack wins", player.attackWins)}${stat("Defense wins", player.defenseWins)}${stat("Donations", donations, received === undefined ? "" : `received ${formatNumber(received)}`)}${stat("Clan role", role || "Not exposed")}${stat("War preference", player.warPreference || "Not exposed")}${stat("Builder Hall", player.builderHallLevel, player.builderBaseTrophies === undefined ? "" : `${formatNumber(player.builderBaseTrophies)} trophies`)}${stat("Capital contributions", player.capitalContributions ?? player.clanCapitalContributions)}${stat("League", player.league?.name || "Not exposed")}${stat("Labels", labels.length ? labels.join(", ") : "None")}</div><p class="muted api-note">Builders, current resources, building levels and upgrade timers are not exposed by the official API — enter them under <strong>Your base (manual)</strong>.</p>${renderCategory("Heroes", player.heroes, categories.heroes, "hero")}${renderCategory("Hero equipment", player.heroEquipment || player.heroes?.flatMap(hero => hero.equipment || []), null, "equipment")}${renderCategory("Home troops", (player.troops || []).filter(item => item.village !== "builderBase"), categories.troops, "troop")}${renderCategory("Spells", player.spells, categories.spells, "spell")}${renderCategory("Builder-base troops", (player.troops || []).filter(item => item.village === "builderBase"), categories.builderBase, "troop")}${renderCategory("Pets", player.pets, null, "pet")}<details class="data-details"><summary>Achievements (${formatNumber(achievements.length)} total · ${formatNumber(completedAchievements)} completed)</summary>${inProgress.length ? `<ol class="achievement-list">${inProgress.map(item => `<li><strong>${escapeHtml(item.name)}</strong><span>${formatNumber(item.value)} / ${formatNumber(item.target)} · ${Math.round(item.value / item.target * 100)}%</span><div class="progress"><span style="width:${safePercent(item.value / item.target)}%"></span></div></li>`).join("")}</ol>` : "<p>No in-progress achievements.</p>"}</details>`;
+}
+
+function stat(label, value, detail = "") {
+  return `<div class="stat"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value === undefined || value === null ? "Not exposed" : formatNumber(value))}</strong>${detail ? `<span>${escapeHtml(detail)}</span>` : ""}</div>`;
+}
+
+function renderCategory(title, payload, analyzed, kind) {
+  if (!payload?.length) return "";
+  const byName = new Map((analyzed?.items || []).map(item => [item.name, item]));
+  return `<details class="data-details" ${kind === "hero" ? "open" : ""}><summary>${escapeHtml(title)} (${formatNumber(payload.length)})</summary><div class="table-wrap"><table><thead><tr><th>Name</th><th>Level</th><th>Target</th><th>Progress</th></tr></thead><tbody>${payload.map(item => {
+    const row = byName.get(item.name);
+    const target = row?.thCapLevel ?? item.maxLevel;
+    const max = item.maxLevel;
+    const percent = target ? Math.min(1, item.level / target) : 0;
+    return `<tr class="${row && row.remainingLevels > 0 ? "non-maxed" : ""}"><td>${escapeHtml(item.name)}</td><td>${formatNumber(item.level)}</td><td>${target === undefined ? "Not exposed" : `${formatNumber(target)}${max !== undefined ? ` / ${formatNumber(max)} max` : ""}`}</td><td><div class="progress"><span style="width:${safePercent(percent)}%"></span></div><small>${Math.round(percent * 100)}%</small></td></tr>`;
+  }).join("")}</tbody></table></div></details>`;
 }
 
 function renderPlan(value) {
@@ -99,4 +127,5 @@ function setStatus(value) { status.textContent = value; }
 function humanTime(seconds) { if (!seconds) return "time n/a"; const days = Math.floor(seconds / 86400); const hours = Math.floor(seconds % 86400 / 3600); return `${days ? `${days}d ` : ""}${hours}h`; }
 function timeUntil(value) { const seconds = Math.max(0, Math.floor((Date.parse(value) - Date.now()) / 1000)); return humanTime(seconds); }
 function safePercent(value) { return Math.max(0, Math.min(100, Number(value) * 100 || 0)); }
+function formatNumber(value) { return typeof value === "number" ? new Intl.NumberFormat().format(value) : String(value); }
 function escapeHtml(value) { return String(value).replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[char])); }

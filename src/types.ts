@@ -43,12 +43,24 @@ export interface Player {
   expLevel?: number;
   trophies?: number;
   bestTrophies?: number;
+  warStars?: number;
+  attackWins?: number;
+  defenseWins?: number;
+  donations?: number;
+  donationsReceived?: number;
+  clanRank?: number;
+  role?: string;
+  league?: { id?: number; name?: string };
+  capitalContributions?: number;
+  clanCapitalContributions?: number;
   builderBaseTrophies?: number;
   clan?: { tag: string; name: string };
   warPreference?: "in" | "out";
   heroes?: Hero[];
   troops?: Troop[];
   spells?: Spell[];
+  pets?: Array<{ name: string; level: number; maxLevel?: number }>;
+  heroEquipment?: Array<{ name: string; level: number; maxLevel?: number }>;
   achievements?: Achievement[];
   labels?: unknown[];
 }
@@ -225,6 +237,7 @@ export interface AccountItem {
   remainingLevels: number;
   provenance: Provenance;
   maxLevelSource?: "api";
+  apiMaxLevel?: number;
   nextUpgrade: {
     cost: number;
     resource?: string;
