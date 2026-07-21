@@ -125,7 +125,7 @@ function evaluateTree(tree: NonNullable<ModelArtifactV1["trees"]>[number], vecto
     const node = tree.nodes[index];
     if (!node) return 0;
     if (node.value !== undefined) return node.value;
-    index = vector[node.feature ?? 0] <= (node.threshold ?? 0) ? node.left ?? 0 : node.right ?? 0;
+    index = vector[node.feature ?? 0] < (node.threshold ?? 0) ? node.left ?? 0 : node.right ?? 0;
   }
   return 0;
 }
