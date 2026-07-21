@@ -1,0 +1,146 @@
+{
+  "last_updated": "2026-07-21",
+  "game_version": "July 2026 balance update (TH18 max)",
+  "sources": [
+    "https://supercell.com/en/games/clashofclans/blog/news/july-balance-update/",
+    "https://supercell.com/en/games/clashofclans/blog/release-notes/the-anime-fury-update-is-here/",
+    "https://blueprintcoc.com/blogs/town-hall-18/new-th18-attack-strategy",
+    "https://blueprintcoc.com/blogs/town-hall-18/best-th18-attack-strategies",
+    "https://www.clash.ninja/guides/upgrade-order/",
+    "https://clashofclans.fandom.com/wiki/Category:Strategy"
+  ],
+  "priorities": {
+    "TH10": [
+      { "category": "clan_castle", "order": 10, "reason": "More housing and stronger donated troops improve every attack.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running for the chosen war or farming army.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "Housing space is a direct offensive multiplier.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Continuous hero and equipment progress is the strongest long-term investment.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade spell, barracks, and army-enabling buildings for the selected composition.", "confidence": "community_consensus" },
+      { "category": "th_weapon", "order": 60, "subject": "Inferno/Town Hall weapon", "reason": "Keep the Town Hall weapon progressing after offense is stable.", "confidence": "unverified" },
+      { "category": "key_defenses", "order": 70, "reason": "Prioritize high-impact defenses before generic defenses.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses after the core plan.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 90, "reason": "Use overflow resources on walls without delaying offense.", "confidence": "community_consensus" }
+    ],
+    "TH11": [
+      { "category": "clan_castle", "order": 10, "reason": "More housing and donated troops improve every attack.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running for the chosen army.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "Housing space is a direct offensive multiplier.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Continuously improve heroes and equipment.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade army-enabling buildings and spells.", "confidence": "community_consensus" },
+      { "category": "th_weapon", "order": 60, "subject": "Town Hall weapon", "reason": "Progress the Town Hall weapon after core offense.", "confidence": "unverified" },
+      { "category": "key_defenses", "order": 70, "reason": "Prioritize high-impact defenses.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 90, "reason": "Use overflow resources on walls.", "confidence": "community_consensus" }
+    ],
+    "TH12": [
+      { "category": "clan_castle", "order": 10, "reason": "More housing and donated troops improve every attack.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running for the chosen army.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "Housing space is a direct offensive multiplier.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Continuously improve heroes and equipment.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade army-enabling buildings and spells.", "confidence": "community_consensus" },
+      { "category": "th_weapon", "order": 60, "subject": "Town Hall weapon", "reason": "Progress the Town Hall weapon after core offense.", "confidence": "unverified" },
+      { "category": "key_defenses", "order": 70, "reason": "Prioritize high-impact defenses.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 90, "reason": "Use overflow resources on walls.", "confidence": "community_consensus" }
+    ],
+    "TH13": [
+      { "category": "clan_castle", "order": 10, "reason": "More housing and donated troops improve every attack.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running for the chosen army.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "Housing space is a direct offensive multiplier.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Continuously improve heroes and equipment.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade army-enabling buildings and spells.", "confidence": "community_consensus" },
+      { "category": "th_weapon", "order": 60, "subject": "Town Hall weapon", "reason": "Progress the Town Hall weapon after core offense.", "confidence": "unverified" },
+      { "category": "key_defenses", "order": 70, "reason": "Prioritize high-impact defenses.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 90, "reason": "Use overflow resources on walls.", "confidence": "community_consensus" }
+    ],
+    "TH14": [
+      { "category": "clan_castle", "order": 10, "reason": "More housing and donated troops improve every attack.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running for the chosen army.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "Housing space is a direct offensive multiplier.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Continuously improve heroes and equipment.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade army-enabling buildings and spells.", "confidence": "community_consensus" },
+      { "category": "th_weapon", "order": 60, "subject": "Town Hall weapon", "reason": "Progress the Town Hall weapon after core offense.", "confidence": "unverified" },
+      { "category": "key_defenses", "order": 70, "reason": "Prioritize high-impact defenses.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 90, "reason": "Use overflow resources on walls.", "confidence": "community_consensus" }
+    ],
+    "TH15": [
+      { "category": "clan_castle", "order": 10, "reason": "More housing and donated troops improve every attack.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running for the chosen army.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "Housing space is a direct offensive multiplier.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Continuously improve heroes and equipment.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade army-enabling buildings and spells.", "confidence": "community_consensus" },
+      { "category": "th_weapon", "order": 60, "subject": "Town Hall weapon", "reason": "Progress the Town Hall weapon after core offense.", "confidence": "unverified" },
+      { "category": "key_defenses", "order": 70, "reason": "Prioritize high-impact defenses.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 90, "reason": "Use overflow resources on walls.", "confidence": "community_consensus" }
+    ],
+    "TH16": [
+      { "category": "clan_castle", "order": 10, "reason": "More housing and donated troops improve every attack.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running for the chosen army.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "Housing space is a direct offensive multiplier.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Continuously improve heroes and equipment.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade army-enabling buildings and spells.", "confidence": "community_consensus" },
+      { "category": "th_weapon", "order": 60, "subject": "Town Hall weapon", "reason": "Progress the Town Hall weapon after core offense.", "confidence": "unverified" },
+      { "category": "key_defenses", "order": 70, "reason": "Prioritize high-impact defenses.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 90, "reason": "Use overflow resources on walls.", "confidence": "community_consensus" }
+    ],
+    "TH17": [
+      { "category": "clan_castle", "order": 10, "reason": "More housing and donated troops improve every attack.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running for the chosen army.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "Housing space is a direct offensive multiplier.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Continuously improve heroes and equipment.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade army-enabling buildings and spells.", "confidence": "community_consensus" },
+      { "category": "th_weapon", "order": 60, "subject": "Town Hall weapon", "reason": "Progress the Town Hall weapon after core offense.", "confidence": "unverified" },
+      { "category": "key_defenses", "order": 70, "reason": "Prioritize high-impact defenses.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 90, "reason": "Use overflow resources on walls.", "confidence": "community_consensus" }
+    ],
+    "TH18": [
+      { "category": "clan_castle", "order": 10, "reason": "More housing and donated troops improve every attack.", "confidence": "community_consensus" },
+      { "category": "laboratory", "order": 20, "reason": "Keep research running for the chosen army.", "confidence": "community_consensus" },
+      { "category": "army_camps", "order": 30, "reason": "Housing space is a direct offensive multiplier.", "confidence": "community_consensus" },
+      { "category": "heroes_equipment", "order": 40, "reason": "Continuously improve heroes and equipment.", "confidence": "community_consensus" },
+      { "category": "offense_buildings", "order": 50, "reason": "Upgrade army-enabling buildings and spells.", "confidence": "community_consensus" },
+      { "category": "th_weapon", "order": 60, "subject": "Town Hall weapon", "reason": "Prioritize current TH18 offensive and Town Hall systems.", "confidence": "official" },
+      { "category": "key_defenses", "order": 70, "reason": "Prioritize Monolith, Spell Towers, and high-impact defenses after offense.", "confidence": "community_consensus" },
+      { "category": "remaining_defenses", "order": 80, "reason": "Complete remaining defenses after the core plan.", "confidence": "community_consensus" },
+      { "category": "walls", "order": 90, "reason": "Use overflow resources on walls.", "confidence": "community_consensus" }
+    ]
+  },
+  "meta_notes": {
+    "TH10": "Current 2026 TH10 meta ranking was not independently verified; use offense-first planning.",
+    "TH11": "Current 2026 TH11 meta ranking is unverified because requested wiki pages were blocked.",
+    "TH12": "Current 2026 TH12 meta ranking is unverified because requested wiki pages were blocked.",
+    "TH13": "Current 2026 TH13 meta ranking is unverified because requested wiki pages were blocked.",
+    "TH14": "Current 2026 TH14 meta ranking is unverified because requested wiki pages were blocked.",
+    "TH15": "Current 2026 TH15 meta ranking is unverified; do not assume pre-TH18 strategies remain top.",
+    "TH16": "Current 2026 TH16 meta ranking is unverified; do not assume pre-TH18 strategies remain top.",
+    "TH17": "Current 2026 TH17 meta ranking is unverified after TH18 launched.",
+    "TH18": "Official July data identifies Dragon armies at about 20% of TH18-vs-TH18 war attacks and Throwers plus Healers as the other major class."
+  },
+  "army_comp_suggestions": {
+    "TH10": ["Queen Charge Hybrid", "Miner/Hog Hybrid", "LaLo", "Zap Dragons"],
+    "TH11": ["Electro Dragons", "Queen Charge LaLo", "Hybrid", "Zap Witch/Yeti smash"],
+    "TH12": ["Blizzard LaLo", "Hybrid", "Yeti smash", "Dragons"],
+    "TH13": ["Queen Charge LaLo", "Hybrid", "Dragons", "Ground smash"],
+    "TH14": ["Queen Charge Hybrid", "Queen Charge LaLo", "Dragons", "Smash variants"],
+    "TH15": ["Root Rider ground smash", "Queen Charge LaLo", "Hybrid", "Hydra"],
+    "TH16": ["Root Riders and Throwers", "Queen Charge LaLo", "Hybrid", "Hydra"],
+    "TH17": ["Root Riders and Throwers", "Queen Charge LaLo", "Hydra", "Super Dragons"],
+    "TH18": ["Dragon Duke Charge plus Dragon Riders", "Hydra with Dragon Riders and Inferno Dragons", "Throwers plus Healers", "Root Riders plus Throwers", "Dragon Duke air openings"]
+  },
+  "priority_template": [
+    "clan_castle",
+    "laboratory",
+    "army_camps",
+    "heroes_equipment",
+    "offense_buildings",
+    "th_weapon",
+    "key_defenses",
+    "remaining_defenses",
+    "walls"
+  ]
+}

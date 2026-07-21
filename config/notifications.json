@@ -1,0 +1,6 @@
+{
+  "shield_expiring_lead_minutes": 60,
+  "clan_games_ending_lead_hours": 6,
+  "capital_raid_active": true,
+  "feed_max_items": 100
+}

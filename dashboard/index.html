@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>CoC Companion</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Read-only official API companion</p>
+        <h1>CoC Companion</h1>
+        <p>Upgrade guidance, public profile snapshots, and event notifications. All game actions remain manual.</p>
+      </header>
+      <section class="card settings">
+        <label>Worker API base URL <input id="apiBase" placeholder="https://coc-companion.example.workers.dev"></label>
+        <label>Player tag <input id="playerTag" placeholder="#2ABC..." maxlength="15"></label>
+        <button id="load">Load snapshot</button>
+        <span id="status" role="status"></span>
+      </section>
+      <section id="overview" class="card hidden"></section>
+      <section class="grid">
+        <article class="card"><h2>Recommendations</h2><ol id="recommendations"><li>Enter a player tag to begin.</li></ol></article>
+        <article class="card"><h2>Notification feed</h2><ul id="feed"><li>No notifications loaded.</li></ul></article>
+      </section>
+      <section class="card">
+        <h2>Ask</h2>
+        <form id="askForm"><input id="question" placeholder="What should I prioritize next?" required><button>Ask</button></form>
+        <pre id="answer"></pre>
+      </section>
+      <footer>Public player tag only. No Supercell credentials or API keys are used in this dashboard.</footer>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>
