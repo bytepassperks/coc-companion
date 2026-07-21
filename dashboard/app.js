@@ -87,7 +87,7 @@ async function load() {
     renderPlan(accountPlan);
     renderClanWar(war, clan, capital);
     renderFeed(notifications);
-    document.querySelector("#recommendations").innerHTML = recs.length ? recs.map(item => `<li><strong>${escapeHtml(humanizeSubject(item.subject))}${humanizeSubject(item.subject) === humanizeCategory(item.category) ? "" : ` <span class="recommendation-category">— ${escapeHtml(humanizeCategory(item.category))}</span>`}</strong><small>${escapeHtml(item.reason)}</small></li>`).join("") : "<li>No configured recommendations.</li>";
+    document.querySelector("#recommendations").innerHTML = recs.length ? recs.map(item => `<li><strong>${escapeHtml(humanizeSubject(item.subject))}${humanizeSubject(item.subject).toLowerCase() === humanizeCategory(item.category).toLowerCase() ? "" : ` <span class="recommendation-category">— ${escapeHtml(humanizeCategory(item.category))}</span>`}</strong><small>${escapeHtml(item.reason)}</small></li>`).join("") : "<li>No configured recommendations.</li>";
     document.querySelector("#goal").value = savedBase?.goal || document.querySelector("#goal").value;
     showToast("Account loaded.");
   } catch (error) {
