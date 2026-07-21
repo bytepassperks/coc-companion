@@ -6,12 +6,15 @@ runtime dependency. It accepts newline-delimited attack rows from R2.
 import argparse
 import json
 import math
+import os
 from datetime import datetime, timezone
 
 FEATURES = ["attackerTH", "defenderTH", "thDiff", "attackerHeroTotal"]
 
 
 def rows(path):
+    if not path or not os.path.exists(path):
+        return
     with open(path, encoding="utf-8") as handle:
         for line in handle:
             try:
@@ -28,7 +31,7 @@ def sigmoid(value):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True)
+    parser.add_argument("--input", default=os.environ.get("ATTACKS_JSONL", "attacks.jsonl"))
     parser.add_argument("--output", default="artifact.json")
     parser.add_argument("--model-card", default="MODEL_CARD.md")
     args = parser.parse_args()
