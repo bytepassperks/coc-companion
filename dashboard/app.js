@@ -248,7 +248,7 @@ async function load() {
       document.querySelector("#buildersFree").value = defaultBuilders;
     }
     renderIdentity(player, war);
-    renderPlayer(player, accountPlan.accountDetails, clan, accountPlan.rushScore, savedBase);
+    renderPlayer(player, accountPlan.accountDetails, clan, accountPlan.rushScore, savedBase || {});
     renderHeroLineup(player, savedBase?.heroLineup || []);
     renderHeroLoadouts(player, savedBase?.heroLoadouts || {});
     renderArmySelectors(player, savedBase || {});
@@ -396,7 +396,8 @@ function renderHeroLoadouts(player, saved) {
   const pets = player.pets?.length ? player.pets : (player.troops || []).filter(item => item.village !== "builderBase" && ["L.A.S.S.I", "Electro Owl", "Mighty Yak", "Unicorn", "Frosty", "Diggy", "Poison Lizard", "Phoenix", "Spirit Fox", "Angry Jelly", "Sneezy"].includes(item.name));
   target.innerHTML = `<legend>My hero loadouts</legend>${(player.heroes || []).map(hero => { const ownEquipment = equipment.filter(item => hero.equipment?.some(entry => entry.name === item.name) || !hero.equipment).map(item => item.name); const selected = saved[hero.name] || { equipment: ownEquipment.slice(0, 2), pet: pets[0]?.name }; return `<div class="loadout-row"><strong>${escapeHtml(hero.name)}</strong><label>Equipment 1<select data-loadout-hero="${escapeHtml(hero.name)}" data-loadout-slot="equipment"><option value="">None</option>${ownEquipment.map(name => `<option ${selected.equipment?.[0] === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><label>Equipment 2<select data-loadout-hero="${escapeHtml(hero.name)}" data-loadout-slot="equipment"><option value="">None</option>${ownEquipment.map(name => `<option ${selected.equipment?.[1] === name ? "selected" : ""}>${escapeHtml(name)}</option>`).join("")}</select></label><label>Pet<select data-loadout-hero="${escapeHtml(hero.name)}" data-loadout-slot="pet"><option value="">None</option>${pets.map(pet => `<option ${selected.pet === pet.name ? "selected" : ""}>${escapeHtml(pet.name)}</option>`).join("")}</select></label></div>`; }).join("")}`;
 }
-function renderPlayer(player, details, clan, rush, base = {}) {
+function renderPlayer(player, details, clan, rush, base) {
+  base = base || {};
   profileHeader.innerHTML = `<div class="profile-heading"><div><p class="eyebrow">Account details</p><h2>${escapeHtml(player.name)}</h2><p>TH${escapeHtml(player.townHallLevel)} · ${formatNumber(player.trophies)} trophies</p></div><div class="heroes">${(player.heroes || []).map(hero => `<span>${escapeHtml(hero.name)} ${escapeHtml(hero.level)}</span>`).join("")}</div></div>`;
   const categories = details?.categories || {};
   const achievements = player.achievements || [];
