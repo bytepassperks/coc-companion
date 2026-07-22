@@ -114,7 +114,7 @@ export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCata
     if ((parsed as unknown[]).length > 8) throw new Error("OCR hero data contains too many heroes");
     return { entries: (parsed as unknown[]).map((item) => {
       const value = item as Record<string, unknown>;
-      if (!value || !names(value.hero, 40) || !Array.isArray(value.equipment) || value.equipment.length > 2 || !value.equipment.every((name) => names(name, 60)) || (value.pet !== undefined && !names(value.pet, 60))) throw new Error("OCR returned invalid hero data");
+      if (!value || !names(value.hero, 40) || !Array.isArray(value.equipment) || value.equipment.length > 8 || !value.equipment.every((name) => names(name, 60)) || (value.pet !== undefined && !names(value.pet, 60))) throw new Error("OCR returned invalid hero data");
       return { hero: (value.hero as string).trim(), equipment: (value.equipment as string[]).map((name) => name.trim()), ...(value.pet ? { pet: (value.pet as string).trim() } : {}) };
     }) };
   }
@@ -152,8 +152,33 @@ export function ocrPrompt(type: OcrType, roster?: OcrRoster) {
   };
   const oreHint = type === "ores" ? "For ores, read the three pill-shaped counters at the bottom of the Hero Equipment screen: blue Shiny like 2253/45000, purple Glowy like 273/4500, and yellow Starry like 369/900. Report the number before each slash, not equipment level badges such as 9/17/24. Numeric strings are acceptable." : "";
   const builderHint = type === "builders" ? "Look for the Upgrade in progress popup. Return every visible row, using labels like Earthquake Spell -> level 6 and remaining like 29m 3s or 1d 42m 3s. Infer kind: lab for troop/spell research, hero for hero upgrades, pet for pet upgrades, builder for buildings, otherwise other." : "";
-  const armyHint = type === "army" ? "List EVERY troop, spell, and siege machine visible, including clan castle sections; do not stop after the first few entries." : "";
-  return `Read this mobile Clash of Clans game screenshot. ${builderHint} ${armyHint}${rosterText(roster)} Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact shape (the values below are synthetic placeholders; never copy them): ${schemas[type]}. Read values from the image, do not use the placeholders. ${oreHint} If a value is unreadable, omit that entry rather than guessing.`;
+  const armyHint = type === "army" ? `List EVERY troop, spell, and siege machine visible, including clan castle sections; do not stop after the first few entries. Icon guide: ${iconGuide(roster)}` : "";
+  const heroHint = type === "hero" ? "If more equipment than two are visible for a hero, list the currently equipped ones first, followed by other owned equipment." : "";
+  return `Read this mobile Clash of Clans game screenshot. ${builderHint} ${armyHint} ${heroHint}${rosterText(roster)} Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact shape (the values below are synthetic placeholders; never copy them): ${schemas[type]}. Read values from the image, do not use the placeholders. ${oreHint} If a value is unreadable, omit that entry rather than guessing.`;
+}
+
+const iconDescriptions: Record<string, string> = {
+  Dragon: "large purple/red dragon", Balloon: "skeleton riding a brown hot-air balloon", "Baby Dragon": "small green baby dragon",
+  "Lightning Spell": "blue vial with lightning", "Healing Spell": "gold/yellow vial", "Rage Spell": "purple vial",
+  "Freeze Spell": "light blue vial", "Poison Spell": "dark green vial", "Jump Spell": "green vial",
+  "Invisibility Spell": "pale blue vial", "Earthquake Spell": "brown vial",
+  "Battle Blimp": "red airship with basket", "Wall Wrecker": "brown battering-ram cart", "Log Launcher": "wooden log launcher",
+  "Stone Slammer": "large stone airship", "Siege Barracks": "portable barracks with troops", "Flame Flinger": "wooden flame-throwing siege cart",
+  "Battle Drill": "underground drill siege machine", Barbarian: "muscular blond melee fighter", Archer: "pink-haired archer",
+  Goblin: "small green raider with sack", Giant: "large bald fighter", Wizard: "hooded blue-robed mage",
+  Witch: "hooded witch with skulls", Bowler: "blue creature carrying a boulder", Golem: "large dark stone creature",
+  "Ice Golem": "blue icy stone creature", "Lava Hound": "flying molten lava beast", "Electro Dragon": "blue electric dragon",
+  Yeti: "white furry creature", Valkyrie: "red-haired axe warrior", "P.E.K.K.A": "armored purple knight",
+  "Hog Rider": "dark-skinned rider on a hog", Miner: "helmeted miner with shovel", Healer: "flying white healer",
+  Minion: "small blue winged creature", "Dragon Rider": "armored rider on dragon", "Electro Titan": "large purple electric giant",
+  "Root Rider": "rider on a tree-root beast",
+};
+
+function iconGuide(roster?: OcrRoster) {
+  if (!roster) return "No roster guide is available.";
+  const names = [...roster.troops, ...roster.spells].map((unit) => unit.name);
+  return names.filter((name, index) => names.indexOf(name) === index && iconDescriptions[name])
+    .map((name) => `${name} = ${iconDescriptions[name]}`).join("; ") || "No matching visual descriptions are available.";
 }
 
 function rosterText(roster: OcrRoster | undefined) {

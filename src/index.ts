@@ -137,7 +137,11 @@ export default {
             attempts.push({ model, error: error instanceof Error ? error.message : "vision model failed" });
           }
         }
-        if (!raw) return json({ error: "OCR unavailable: no configured vision model could read this image" }, cors, 503);
+        if (!raw) {
+          const unavailable: Record<string, unknown> = { error: "OCR unavailable: no configured vision model could read this image" };
+          if (debug) unavailable.attempts = attempts;
+          return json(unavailable, cors, 503);
+        }
         const response: Record<string, unknown> = { error: `OCR could not produce a safe draft: ${parseError instanceof Error ? parseError.message : "invalid model output"}` };
         if (debug) {
           response.raw = truncateOcrDebug(raw);

@@ -29,6 +29,12 @@ describe("screenshot OCR drafts", () => {
     expect(ocrPrompt("army")).toContain("EVERY troop, spell, and siege machine");
   });
 
+  it("allows owned equipment inventories and prioritizes equipped items", () => {
+    const equipment = Array.from({ length: 8 }, (_, index) => `Equipment ${index}`);
+    expect(parseOcrResponse(JSON.stringify([{ hero: "Barbarian King", equipment }]), "hero").entries).toHaveLength(1);
+    expect(ocrPrompt("hero")).toContain("currently equipped ones first");
+  });
+
   it("snaps roster names, flags unmatched names, and trusts API levels", () => {
     expect(snapRosterName("Dragons", ["Dragon"])).toMatchObject({ name: "Dragon", unmatched: false });
     expect(snapRosterName("Gobln", ["Dragon", "Goblin"])).toMatchObject({ name: "Goblin", unmatched: false });
@@ -44,9 +50,10 @@ describe("screenshot OCR drafts", () => {
   });
 
   it("includes the API roster in the army prompt", () => {
-    const prompt = ocrPrompt("army", { troops: [{ name: "Dragon", level: 7 }], spells: [], heroes: [], pets: [], equipment: [] });
+    const prompt = ocrPrompt("army", { troops: [{ name: "Dragon", level: 7 }, { name: "Balloon", level: 8 }], spells: [], heroes: [], pets: [], equipment: [] });
     expect(prompt).toContain("Dragon");
     expect(prompt).toContain("Every name in your answer MUST be copied");
+    expect(prompt).toContain("Icon guide: Dragon = large purple/red dragon; Balloon = skeleton riding a brown hot-air balloon");
   });
 
   it("unwraps common model response wrappers and rejects copied examples", () => {
