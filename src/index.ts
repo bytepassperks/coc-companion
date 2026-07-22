@@ -2,7 +2,7 @@ import upgradeConfig from "../config/upgrade-priorities.json";
 import notificationConfig from "../config/notifications.json";
 import type { KVNamespace } from "@cloudflare/workers-types";
 import { CocClient, CocApiError, type CacheLayer } from "./cocClient";
-import { answerQuestion, generatePlan, DEFAULT_AI_MODEL, DEFAULT_AI_FALLBACK_MODELS } from "./ai";
+import { answerQuestion, extractAiText, generatePlan, DEFAULT_AI_MODEL, DEFAULT_AI_FALLBACK_MODELS } from "./ai";
 import { collectNotifications } from "./notifications";
 import { getRecommendations } from "./recommendationEngine";
 import { analyzeAccount } from "./analyzer";
@@ -76,11 +76,13 @@ export default {
         assertTag(tag);
         const contentType = request.headers.get("Content-Type") ?? "";
         let type: string | undefined;
+        let debug = false;
         let image: ArrayBuffer;
         let mime = "image/jpeg";
         if (contentType.includes("multipart/form-data")) {
           const form = await request.formData();
           type = String(form.get("type") ?? "");
+          debug = String(form.get("debug") ?? "").toLowerCase() === "true";
           const file = form.get("image") ?? form.get("file");
           if (!(file instanceof File)) throw new ValidationError("An image file is required");
           image = await file.arrayBuffer();
@@ -88,6 +90,7 @@ export default {
         } else {
           const body = await parseJson(request) as { type?: string; image?: string } | null;
           type = body?.type;
+          debug = Boolean((body as { debug?: unknown } | null)?.debug);
           if (typeof body?.image !== "string") throw new ValidationError("A base64 image is required");
           const match = body.image.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
           const encoded = match ? match[2] : body.image;
@@ -107,14 +110,18 @@ export default {
             raw = await env.AI.run(model as never, { temperature: 0, max_tokens: 700, messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
             if (!raw) continue;
             try {
-              return json({ type, draft: parseOcrResponse(raw, type as OcrType, loaded?.catalog), reviewed: false }, cors);
+              const response: Record<string, unknown> = { type, draft: parseOcrResponse(raw, type as OcrType, loaded?.catalog), reviewed: false };
+              if (debug) response.raw = truncateOcrDebug(raw);
+              return json(response, cors);
             } catch (error) {
               parseError = error;
             }
           } catch { /* try the next configured vision model */ }
         }
         if (!raw) return json({ error: "OCR unavailable: no configured vision model could read this image" }, cors, 503);
-        return json({ error: `OCR could not produce a safe draft: ${parseError instanceof Error ? parseError.message : "invalid model output"}` }, cors, 422);
+        const response: Record<string, unknown> = { error: `OCR could not produce a safe draft: ${parseError instanceof Error ? parseError.message : "invalid model output"}` };
+        if (debug) response.raw = truncateOcrDebug(raw);
+        return json(response, cors, 422);
       }
       const doneMatch = url.pathname.match(/^\/api\/done\/([^/]+)$/);
       if (doneMatch && request.method === "GET") {
@@ -455,6 +462,11 @@ function encodeBase64(value: Uint8Array) {
   const chunk = 0x8000;
   for (let index = 0; index < value.length; index += chunk) result += String.fromCharCode(...value.subarray(index, index + chunk));
   return btoa(result);
+}
+
+function truncateOcrDebug(value: unknown) {
+  const text = extractAiText(value) ?? (typeof value === "string" ? value : JSON.stringify(value));
+  return text.slice(0, 2000);
 }
 
 function configuredAiModels(env: Env) {

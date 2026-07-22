@@ -98,10 +98,10 @@ describe("watch routes", () => {
     (testEnv as unknown as { AI: unknown }).AI = { run: vi.fn().mockResolvedValue({ response: '[{"name":"Dragon","count":10,"level":7}]' }) };
     const response = await worker.fetch(new Request("https://example.test/api/ocr/%232PYC", {
       method: "POST", headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "army", image: `data:image/jpeg;base64,${btoa("small-image")}` }),
+      body: JSON.stringify({ type: "army", debug: true, image: `data:image/jpeg;base64,${btoa("small-image")}` }),
     }), testEnv as never);
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ type: "army", reviewed: false, draft: { entries: [{ name: "Dragon" }] } });
+    expect(await response.json()).toMatchObject({ type: "army", reviewed: false, raw: '[{"name":"Dragon","count":10,"level":7}]', draft: { entries: [{ name: "Dragon" }] } });
   });
 
   it("tries the fallback vision model when the first response is not parseable", async () => {

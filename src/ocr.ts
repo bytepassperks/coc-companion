@@ -45,6 +45,11 @@ export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCata
     try { if (candidate.trim()) { parsed = JSON.parse(candidate); break; } } catch { /* untrusted model output */ }
   }
   if (parsed === undefined) throw new Error("OCR returned invalid JSON");
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const properties = Object.values(parsed as Record<string, unknown>);
+    if (properties.length === 1 && Array.isArray(properties[0])) parsed = properties[0];
+    else if (type === "ores" && properties.length === 1 && properties[0] && typeof properties[0] === "object") parsed = properties[0];
+  }
   if (type === "upgrades") {
     if (!Array.isArray(parsed) || parsed.length > 25) throw new Error("OCR upgrades must be an array of up to 25 entries");
     const entries = parsed.map((item) => {
@@ -81,16 +86,17 @@ export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCata
   }
   if (!parsed || typeof parsed !== "object" || !integer((parsed as Record<string, unknown>).shiny, 0, 1000000) || !integer((parsed as Record<string, unknown>).glowy, 0, 1000000) || !integer((parsed as Record<string, unknown>).starry, 0, 1000000)) throw new Error("OCR returned invalid ore balances");
   const value = parsed as Record<string, unknown>;
+  if (value.shiny === 12 && value.glowy === 34 && value.starry === 56) throw new Error("OCR repeated the prompt example instead of reading the image");
   return { shiny: value.shiny, glowy: value.glowy, starry: value.starry, ...(value.magicItems && typeof value.magicItems === "object" ? { magicItems: value.magicItems } : {}) };
 }
 
 export function ocrPrompt(type: OcrType) {
   const schemas: Record<OcrType, string> = {
-    upgrades: '[{"name":"X-Bow","count":1,"cost":8000000,"resource":"Gold"}]',
-    builders: '[{"label":"Archer Tower","remaining":"3h 19m","kind":"builder"}]',
-    army: '[{"name":"Dragon","count":10,"level":7}]',
-    hero: '[{"hero":"Barbarian King","equipment":["Spiky Ball","Snake Bracelet"],"pet":"Frosty"}]',
-    ores: '{"shiny":1088,"glowy":187,"starry":467,"magicItems":{"bookOfHeroes":1}}',
+    upgrades: '[{"name":"Example Tower","count":2,"cost":123456,"resource":"Gold"}]',
+    builders: '[{"label":"Example Builder","remaining":"1h 2m","kind":"builder"}]',
+    army: '[{"name":"Example Troop","count":3,"level":4}]',
+    hero: '[{"hero":"Example Hero","equipment":["Example Equipment"],"pet":"Example Pet"}]',
+    ores: '{"shiny":12,"glowy":34,"starry":56,"magicItems":{"bookOfHeroes":2}}',
   };
-  return `Read this Clash of Clans screenshot. Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact one-shot format and no other keys: ${schemas[type]}. If a value is unreadable, omit that entry rather than guessing.`;
+  return `Read this mobile Clash of Clans game screenshot and list every visible row. Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact shape (the values below are synthetic placeholders; never copy them): ${schemas[type]}. Read values from the image, do not use the placeholders. If a value is unreadable, omit that entry rather than guessing.`;
 }

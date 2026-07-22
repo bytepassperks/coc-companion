@@ -12,6 +12,12 @@ describe("screenshot OCR drafts", () => {
     expect(parseOcrResponse('Sure: [{"name":"Dragon","count":1,"level":7}] trailing commentary', "army").entries).toHaveLength(1);
   });
 
+  it("unwraps common model response wrappers and rejects copied examples", () => {
+    expect(parseOcrResponse('{"upgrades":[{"name":"Dragon","count":1,"cost":2}]}', "upgrades").entries).toHaveLength(1);
+    expect(parseOcrResponse('{"army":[{"name":"Dragon","count":1,"level":7}]}', "army").entries).toHaveLength(1);
+    expect(() => parseOcrResponse('{"shiny":12,"glowy":34,"starry":56}', "ores")).toThrow("repeated the prompt example");
+  });
+
   it("validates typed JSON and wires upgrades through cost inference", () => {
     const result = parseOcrResponse(JSON.stringify([{ name: "X-Bow", count: 1, cost: 8000000 }]), "upgrades", catalog);
     expect((result.entries as Array<{ targetLevel?: number }>)[0].targetLevel).toBe(11);
