@@ -101,7 +101,7 @@ export default {
         if (image.byteLength < 1 || image.byteLength > 4 * 1024 * 1024) throw new ValidationError("Image must be between 1 byte and 4MB");
         if (!env.AI) return json({ error: "OCR unavailable: vision AI is not configured" }, cors, 503);
         const imageBase64 = encodeBase64(new Uint8Array(image));
-        const models = (env.OCR_MODELS || "@cf/meta/llama-3.2-11b-vision-instruct,@cf/llava-hf/llava-1.5-7b-hf").split(",").map((value) => value.trim()).filter(Boolean);
+        const models = (env.OCR_MODELS || "@cf/meta/llama-4-scout-17b-16e-instruct,@cf/meta/llama-3.2-11b-vision-instruct").split(",").map((value) => value.trim()).filter(Boolean);
         let raw: unknown;
         let parseError: unknown;
         const loaded = type === "upgrades" ? await loadCatalog(env.STATE) : undefined;
