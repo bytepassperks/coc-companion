@@ -38,11 +38,78 @@ function organizeSetupPanel() {
   const summary = document.createElement("summary");
   summary.innerHTML = "Set up my base <span>Manual planning inputs · one Save</span>";
   details.append(summary);
+  const ocr = document.createElement("section");
+  ocr.className = "ocr-import";
+  ocr.innerHTML = `<h2>📷 Import from screenshot</h2><p class="muted">Best-effort reading only. Review every value before using the normal Save setup button.</p><div class="ocr-controls"><input id="ocrImage" type="file" accept="image/*"><select id="ocrType"><option value="upgrades">Upgrade list</option><option value="builders">Builders/timers</option><option value="army">Army</option><option value="hero">Hero loadouts</option><option value="ores">Ores & magic items</option></select><button type="button" class="secondary" id="ocrRun">Read screenshot</button></div><div id="ocrReview"></div>`;
+  details.append(ocr);
   while (card.firstChild) details.append(card.firstChild);
   document.querySelectorAll(".manual-extra").forEach(section => details.append(section));
   card.append(details);
 }
 organizeSetupPanel();
+let ocrDraft;
+document.querySelector("#ocrRun")?.addEventListener("click", async () => {
+  const file = document.querySelector("#ocrImage").files?.[0];
+  const type = document.querySelector("#ocrType").value;
+  const review = document.querySelector("#ocrReview");
+  if (!file) return showToast("Choose a screenshot first.");
+  if (file.size > 4 * 1024 * 1024) return showToast("Screenshot must be 4MB or smaller.");
+  if (!sessionToken) return showToast("Log in before importing a screenshot.");
+  review.innerHTML = "<p class=\"muted\">Reading screenshot…</p>";
+  try {
+    const image = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
+    const result = await post(`/api/ocr/${encodeURIComponent(playerTag.value.trim())}`, { type, image }, true);
+    ocrDraft = result.draft;
+    renderOcrReview(type, ocrDraft);
+  } catch (error) { review.innerHTML = `<p class="muted">Couldn't read this screenshot — enter the values manually. ${escapeHtml(error.message)}</p>`; }
+});
+function renderOcrReview(type, draft) {
+  const review = document.querySelector("#ocrReview");
+  if (type === "ores") {
+    review.innerHTML = `<div class="ocr-review-grid">${["shiny", "glowy", "starry"].map(key => `<label>${key[0].toUpperCase() + key.slice(1)}<input data-ocr-key="${key}" type="number" min="0" value="${escapeHtml(draft[key] ?? 0)}"></label>`).join("")}</div><button type="button" class="gold-button" id="ocrConfirm">Review complete — use values</button>`;
+  } else if (type === "upgrades") {
+    review.innerHTML = `<div class="ocr-table">${(draft.entries || []).map((row, index) => `<div class="ocr-row"><input data-ocr-row="${index}" data-ocr-field="name" value="${escapeHtml(row.name)}"><input data-ocr-row="${index}" data-ocr-field="count" type="number" min="1" value="${escapeHtml(row.count)}"><input data-ocr-row="${index}" data-ocr-field="cost" type="number" min="0" value="${escapeHtml(row.cost)}"></div>`).join("")}</div><button type="button" class="gold-button" id="ocrConfirm">Review complete — use values</button>`;
+  } else {
+    review.innerHTML = `<textarea class="ocr-json" id="ocrJson" rows="6">${escapeHtml(JSON.stringify(draft, null, 2))}</textarea><button type="button" class="gold-button" id="ocrConfirm">Review complete — use values</button>`;
+  }
+  document.querySelector("#ocrConfirm").addEventListener("click", confirmOcr);
+}
+function confirmOcr() {
+  const type = document.querySelector("#ocrType").value;
+  if (type === "ores") {
+    ["shiny", "glowy", "starry"].forEach(key => { document.querySelector(`#ore${key[0].toUpperCase() + key.slice(1)}`).value = document.querySelector(`[data-ocr-key="${key}"]`).value; });
+    Object.entries(ocrDraft.magicItems || {}).forEach(([key, value]) => { const input = document.querySelector(`[data-magic-item="${key}"]`); if (input) input.value = value; });
+  }
+  if (type === "upgrades") {
+    builderBacklogRows = [...document.querySelectorAll("[data-ocr-row]")].filter(input => input.dataset.ocrField === "name").map(input => {
+      const index = input.dataset.ocrRow;
+      return { name: input.value, count: Number(document.querySelector(`[data-ocr-row="${index}"][data-ocr-field="count"]`).value), cost: Number(document.querySelector(`[data-ocr-row="${index}"][data-ocr-field="cost"]`).value) };
+    });
+    renderBuilderBacklog();
+  }
+  if (type === "army" || type === "hero" || type === "builders") {
+    try { ocrDraft = JSON.parse(document.querySelector("#ocrJson").value); } catch { return showToast("Fix the extracted JSON before using it."); }
+    if (type === "army") {
+      const names = (ocrDraft.entries || []).map(row => row.name.toLowerCase());
+      document.querySelectorAll("#warArmy input").forEach(input => { input.checked = names.includes(input.value.toLowerCase()); });
+    }
+    if (type === "hero") (ocrDraft.entries || []).forEach(row => {
+      document.querySelectorAll("[data-loadout-hero]").forEach(select => {
+        if (select.dataset.loadoutHero?.toLowerCase() !== row.hero.toLowerCase()) return;
+        if (select.dataset.loadoutSlot === "pet") select.value = row.pet || "";
+        if (select.dataset.loadoutSlot === "equipment" && row.equipment?.includes(select.value) === false) {
+          const option = [...select.options].find(item => row.equipment.includes(item.value));
+          if (option) select.value = option.value;
+        }
+      });
+    });
+    if (type === "builders" && ocrDraft.entries?.[0]) {
+      document.querySelector("#timerLabel").value = ocrDraft.entries[0].label;
+      document.querySelector("#timerDuration").value = ocrDraft.entries[0].remaining;
+    }
+  }
+  showToast("Reviewed values are ready in the setup form. Save when ready.");
+}
 function organizeTodayTimers() {
   const form = document.querySelector("#timerForm");
   if (!form || form.closest("details")) return;

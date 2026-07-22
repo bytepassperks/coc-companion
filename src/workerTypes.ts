@@ -10,4 +10,5 @@ export interface Env {
   AI_FALLBACK_MODELS?: string;
   DATA: R2Bucket;
   MODELS: R2Bucket;
+  OCR_MODELS?: string;
 }

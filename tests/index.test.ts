@@ -79,6 +79,31 @@ describe("watch routes", () => {
     expect(unlinked.status).toBe(200);
   });
 
+  it("rejects invalid and oversized OCR images before invoking AI", async () => {
+    const testEnv = env();
+    const invalid = await worker.fetch(new Request("https://example.test/api/ocr/%232PYC", {
+      method: "POST", headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "upgrades", image: "not-base64" }),
+    }), testEnv as never);
+    expect(invalid.status).toBe(400);
+    const oversized = await worker.fetch(new Request("https://example.test/api/ocr/%232PYC", {
+      method: "POST", headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "upgrades", image: `data:image/jpeg;base64,${btoa("x".repeat(4 * 1024 * 1024 + 1))}` }),
+    }), testEnv as never);
+    expect(oversized.status).toBe(400);
+  });
+
+  it("returns a reviewed=false OCR draft from a mocked vision binding", async () => {
+    const testEnv = env();
+    (testEnv as unknown as { AI: unknown }).AI = { run: vi.fn().mockResolvedValue({ response: '[{"name":"Dragon","count":10,"level":7}]' }) };
+    const response = await worker.fetch(new Request("https://example.test/api/ocr/%232PYC", {
+      method: "POST", headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "army", image: `data:image/jpeg;base64,${btoa("small-image")}` }),
+    }), testEnv as never);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ type: "army", reviewed: false, draft: { entries: [{ name: "Dragon" }] } });
+  });
+
   it("validates and stores manual base state", async () => {
     const testEnv = env();
     const response = await worker.fetch(new Request("https://example.test/api/base/%232PYC", {

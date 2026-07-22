@@ -15,6 +15,7 @@ import type { BaseState, GameCatalog, Player, Snapshot } from "./types";
 import { actionKey } from "./checklist";
 import { authenticateUser, bearerToken, createSession, destroySession, linkUserTag, registerUser, sessionEmail, unlinkUserTag, type UserRecord } from "./auth";
 import { loadCatalog } from "./catalogLoader";
+import { OCR_TYPES, ocrPrompt, parseOcrResponse, type OcrType } from "./ocr";
 import { collectWatched } from "./collector";
 import { loadArtifact, predictWar } from "./model";
 import { activeTimers, expireTimers, processTimers, timerId, validateTimerInput } from "./timers";
@@ -66,6 +67,52 @@ export default {
           ? await linkUserTag(env.STATE, email, tag)
           : await unlinkUserTag(env.STATE, email, tag);
         return json({ email, linkedTags }, cors);
+      }
+      const ocrMatch = url.pathname.match(/^\/api\/ocr\/([^/]+)$/);
+      if (ocrMatch && request.method === "POST") {
+        const email = await requireSession(request, env);
+        if (!email) return unauthorized(cors);
+        const tag = decodeURIComponent(ocrMatch[1]);
+        assertTag(tag);
+        const contentType = request.headers.get("Content-Type") ?? "";
+        let type: string | undefined;
+        let image: ArrayBuffer;
+        let mime = "image/jpeg";
+        if (contentType.includes("multipart/form-data")) {
+          const form = await request.formData();
+          type = String(form.get("type") ?? "");
+          const file = form.get("image") ?? form.get("file");
+          if (!(file instanceof File)) throw new ValidationError("An image file is required");
+          image = await file.arrayBuffer();
+          mime = file.type || mime;
+        } else {
+          const body = await parseJson(request) as { type?: string; image?: string } | null;
+          type = body?.type;
+          if (typeof body?.image !== "string") throw new ValidationError("A base64 image is required");
+          const match = body.image.match(/^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i);
+          const encoded = match ? match[2] : body.image;
+          mime = match?.[1] ?? mime;
+          try { image = Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0)).buffer; } catch { throw new ValidationError("Invalid base64 image"); }
+        }
+        if (!OCR_TYPES.includes(type as OcrType)) throw new ValidationError("type must be upgrades, builders, army, hero, or ores");
+        if (image.byteLength < 1 || image.byteLength > 4 * 1024 * 1024) throw new ValidationError("Image must be between 1 byte and 4MB");
+        if (!env.AI) return json({ error: "OCR unavailable: vision AI is not configured" }, cors, 503);
+        const imageBase64 = encodeBase64(new Uint8Array(image));
+        const models = (env.OCR_MODELS || "@cf/meta/llama-3.2-11b-vision-instruct,@cf/llava-hf/llava-1.5-7b-hf").split(",").map((value) => value.trim()).filter(Boolean);
+        let raw: unknown;
+        for (const model of models) {
+          try {
+            raw = await env.AI.run(model as never, { messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
+            if (raw) break;
+          } catch { /* try the next configured vision model */ }
+        }
+        if (!raw) return json({ error: "OCR unavailable: no configured vision model could read this image" }, cors, 503);
+        try {
+          const loaded = type === "upgrades" ? await loadCatalog(env.STATE) : undefined;
+          return json({ type, draft: parseOcrResponse(raw, type as OcrType, loaded?.catalog), reviewed: false }, cors);
+        } catch (error) {
+          return json({ error: `OCR could not produce a safe draft: ${error instanceof Error ? error.message : "invalid model output"}` }, cors, 422);
+        }
       }
       const doneMatch = url.pathname.match(/^\/api\/done\/([^/]+)$/);
       if (doneMatch && request.method === "GET") {
@@ -399,6 +446,13 @@ export default {
 
 function assertTag(tag: string) {
   if (!/^#?[0289PYLQGRJCUV]+$/i.test(tag)) throw new ValidationError("Invalid player tag");
+}
+
+function encodeBase64(value: Uint8Array) {
+  let result = "";
+  const chunk = 0x8000;
+  for (let index = 0; index < value.length; index += chunk) result += String.fromCharCode(...value.subarray(index, index + chunk));
+  return btoa(result);
 }
 
 function configuredAiModels(env: Env) {

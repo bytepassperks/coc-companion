@@ -21,6 +21,9 @@
 - Builder backlog inference now recognizes 90%, 85%, and 80% Gold Pass
   discounted display costs with ambiguity safeguards and explicit discounted
   inference provenance.
+- Added authenticated screenshot OCR drafts through `POST /api/ocr/:tag`.
+  Vision output is type-validated, Gold Pass-aware for upgrade lists, and
+  reviewed in the dashboard before entering the normal manual Save flow.
 
 - Added the advisory-only CoC Strategist ML foundation: bounded public-data
   collection to R2, point-in-time attack events, validated JSON model serving

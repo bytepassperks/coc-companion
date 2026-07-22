@@ -1,0 +1,28 @@
+import { describe, expect, it } from "vitest";
+import { parseOcrResponse } from "../src/ocr";
+import type { GameCatalog } from "../src/types";
+
+const catalog = {
+  buildings: [{ name: "X-Bow", village: "home", resource: "Gold", levels: [{ level: 11, build_cost: 10000000 }] }],
+} as GameCatalog;
+
+describe("screenshot OCR drafts", () => {
+  it("validates typed JSON and wires upgrades through cost inference", () => {
+    const result = parseOcrResponse(JSON.stringify([{ name: "X-Bow", count: 1, cost: 8000000 }]), "upgrades", catalog);
+    expect((result.entries as Array<{ targetLevel?: number }>)[0].targetLevel).toBe(11);
+    expect((result.entries as Array<{ provenance?: string }>)[0].provenance).toContain("discounted");
+  });
+
+  it("rejects junk and oversized typed collections", () => {
+    expect(() => parseOcrResponse("not json", "ores")).toThrow("invalid JSON");
+    expect(() => parseOcrResponse(JSON.stringify([{ name: "x", count: 0, cost: 1 }]), "upgrades")).toThrow("invalid upgrade");
+    expect(() => parseOcrResponse(JSON.stringify(Array.from({ length: 26 }, () => ({ name: "x", count: 1, cost: 1 }))), "upgrades")).toThrow("up to 25");
+  });
+
+  it("accepts army, hero, builders, and ore schemas", () => {
+    expect(parseOcrResponse('[{"name":"Dragon","count":10,"level":7}]', "army").entries).toHaveLength(1);
+    expect(parseOcrResponse('[{"hero":"Barbarian King","equipment":["Spiky Ball"],"pet":"Frosty"}]', "hero").entries).toHaveLength(1);
+    expect(parseOcrResponse('[{"label":"X-Bow","remaining":"3h 19m","kind":"builder"}]', "builders").entries).toHaveLength(1);
+    expect(parseOcrResponse('{"shiny":1088,"glowy":187,"starry":467}', "ores")).toMatchObject({ shiny: 1088, glowy: 187 });
+  });
+});
