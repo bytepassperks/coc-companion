@@ -158,7 +158,14 @@ export function ocrPrompt(type: OcrType, roster?: OcrRoster) {
 
 function rosterText(roster: OcrRoster | undefined) {
   if (!roster) return "";
-  return ` The player owns ONLY these units and names: ${JSON.stringify(roster)}. Every name in your answer MUST be copied from these lists; do not invent or visually substitute a name.`;
+  const compact = {
+    troops: roster.troops.map((unit) => unit.name),
+    spells: roster.spells.map((unit) => unit.name),
+    heroes: roster.heroes.map((hero) => hero.name),
+    pets: roster.pets,
+    equipment: roster.equipment,
+  };
+  return ` The player owns ONLY these units and names: ${JSON.stringify(compact)}. Every name in your answer MUST be copied from these lists; do not invent or visually substitute a name.`;
 }
 
 export function buildOcrRoster(player: Player): OcrRoster {
@@ -214,8 +221,9 @@ export function snapRosterName(value: string, roster: string[]) {
 
 export function groundArmyDraft(draft: OcrDraft, player: Player): OcrDraft {
   const roster = buildOcrRoster(player);
-  const levels = new Map([...roster.troops, ...roster.spells].map((unit) => [normalizedName(unit.name), unit.level]));
-  const names = [...roster.troops, ...roster.spells].map((unit) => unit.name);
+  const units = [...roster.troops, ...roster.spells, ...roster.heroes];
+  const levels = new Map(units.map((unit) => [normalizedName(unit.name), unit.level]));
+  const names = units.map((unit) => unit.name);
   return {
     ...draft,
     entries: (draft.entries as Array<Record<string, unknown>>).map((entry) => {

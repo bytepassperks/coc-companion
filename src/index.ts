@@ -117,7 +117,7 @@ export default {
         const loaded = type === "upgrades" ? await loadCatalog(env.STATE) : undefined;
         for (const model of models) {
           try {
-            raw = await env.AI.run(model as never, { temperature: 0, max_tokens: 900, messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType, roster) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
+            raw = await env.AI.run(model as never, { temperature: 0, max_tokens: type === "army" || type === "hero" ? 1400 : 900, messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType, roster) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
             if (!raw) continue;
             try {
               let draft = parseOcrResponse(raw, type as OcrType, loaded?.catalog);
