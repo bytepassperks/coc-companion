@@ -1,10 +1,18 @@
 import { extractAiText } from "./ai";
 import type { GameCatalog } from "./types";
+import type { Player } from "./types";
 import { inferBuilderBacklog } from "./builderBacklog";
 
 export const OCR_TYPES = ["upgrades", "builders", "army", "hero", "ores"] as const;
 export type OcrType = typeof OCR_TYPES[number];
 export type OcrDraft = Record<string, unknown>;
+export type OcrRoster = {
+  troops: Array<{ name: string; level: number }>;
+  spells: Array<{ name: string; level: number }>;
+  heroes: Array<{ name: string; level: number }>;
+  pets: string[];
+  equipment: string[];
+};
 
 export function extractJsonBlock(text: string) {
   return extractJsonBlocks(text)[0];
@@ -134,7 +142,7 @@ export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCata
   return { shiny, glowy, starry, ...(magicItems ? { magicItems } : {}) };
 }
 
-export function ocrPrompt(type: OcrType) {
+export function ocrPrompt(type: OcrType, roster?: OcrRoster) {
   const schemas: Record<OcrType, string> = {
     upgrades: '[{"name":"Example Tower","count":2,"cost":123456,"resource":"Gold"}]',
     builders: '[{"label":"Example Builder -> level 2","remaining":"1m 2s","kind":"other"}]',
@@ -145,5 +153,94 @@ export function ocrPrompt(type: OcrType) {
   const oreHint = type === "ores" ? "For ores, read the three pill-shaped counters at the bottom of the Hero Equipment screen: blue Shiny like 2253/45000, purple Glowy like 273/4500, and yellow Starry like 369/900. Report the number before each slash, not equipment level badges such as 9/17/24. Numeric strings are acceptable." : "";
   const builderHint = type === "builders" ? "Look for the Upgrade in progress popup. Return every visible row, using labels like Earthquake Spell -> level 6 and remaining like 29m 3s or 1d 42m 3s. Infer kind: lab for troop/spell research, hero for hero upgrades, pet for pet upgrades, builder for buildings, otherwise other." : "";
   const armyHint = type === "army" ? "List EVERY troop, spell, and siege machine visible, including clan castle sections; do not stop after the first few entries." : "";
-  return `Read this mobile Clash of Clans game screenshot. ${builderHint} ${armyHint} Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact shape (the values below are synthetic placeholders; never copy them): ${schemas[type]}. Read values from the image, do not use the placeholders. ${oreHint} If a value is unreadable, omit that entry rather than guessing.`;
+  return `Read this mobile Clash of Clans game screenshot. ${builderHint} ${armyHint}${rosterText(roster)} Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact shape (the values below are synthetic placeholders; never copy them): ${schemas[type]}. Read values from the image, do not use the placeholders. ${oreHint} If a value is unreadable, omit that entry rather than guessing.`;
+}
+
+function rosterText(roster: OcrRoster | undefined) {
+  if (!roster) return "";
+  return ` The player owns ONLY these units and names: ${JSON.stringify(roster)}. Every name in your answer MUST be copied from these lists; do not invent or visually substitute a name.`;
+}
+
+export function buildOcrRoster(player: Player): OcrRoster {
+  return {
+    troops: (player.troops ?? []).filter((unit) => unit.village !== "builderBase").map((unit) => ({ name: unit.name, level: unit.level })),
+    spells: (player.spells ?? []).filter((unit) => unit.village !== "builderBase").map((unit) => ({ name: unit.name, level: unit.level })),
+    heroes: (player.heroes ?? []).filter((hero) => hero.village !== "builderBase").map((hero) => ({ name: hero.name, level: hero.level })),
+    pets: (player.pets ?? []).map((pet) => pet.name),
+    equipment: [...new Set([
+      ...(player.heroEquipment ?? []).map((item) => item.name),
+      ...(player.heroes ?? []).flatMap((hero) => (hero.equipment ?? []).map((item) => item.name)),
+    ])],
+  };
+}
+
+function normalizedName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function distance(left: string, right: string) {
+  const row = Array.from({ length: right.length + 1 }, (_, index) => index);
+  for (let i = 1; i <= left.length; i += 1) {
+    let diagonal = row[0];
+    row[0] = i;
+    for (let j = 1; j <= right.length; j += 1) {
+      const above = row[j];
+      row[j] = left[i - 1] === right[j - 1]
+        ? diagonal
+        : Math.min(diagonal + 1, row[j] + 1, row[j - 1] + 1);
+      diagonal = above;
+    }
+  }
+  return row[right.length];
+}
+
+export function snapRosterName(value: string, roster: string[]) {
+  const input = normalizedName(value);
+  const exact = roster.find((name) => normalizedName(name) === input);
+  if (exact) return { name: exact, unmatched: false };
+  const singular = input.endsWith("s") ? input.slice(0, -1) : input;
+  const plural = roster.find((name) => {
+    const normalized = normalizedName(name);
+    return normalized === singular || (normalized.endsWith("s") && normalized.slice(0, -1) === input);
+  });
+  if (plural) return { name: plural, unmatched: false };
+  const contained = roster.find((name) => normalizedName(name).includes(input) || input.includes(normalizedName(name)));
+  if (contained) return { name: contained, unmatched: false };
+  const nearest = roster.map((name) => ({ name, score: distance(input, normalizedName(name)) }))
+    .sort((left, right) => left.score - right.score)[0];
+  if (nearest && nearest.score <= 2) return { name: nearest.name, unmatched: false };
+  return { name: value, unmatched: true };
+}
+
+export function groundArmyDraft(draft: OcrDraft, player: Player): OcrDraft {
+  const roster = buildOcrRoster(player);
+  const levels = new Map([...roster.troops, ...roster.spells].map((unit) => [normalizedName(unit.name), unit.level]));
+  const names = [...roster.troops, ...roster.spells].map((unit) => unit.name);
+  return {
+    ...draft,
+    entries: (draft.entries as Array<Record<string, unknown>>).map((entry) => {
+      const snapped = snapRosterName(String(entry.name), names);
+      const level = levels.get(normalizedName(snapped.name));
+      return { ...entry, name: snapped.name, ...(level === undefined ? {} : { level }), ...(snapped.unmatched ? { unmatched: true } : {}) };
+    }),
+  };
+}
+
+export function groundHeroDraft(draft: OcrDraft, player: Player): OcrDraft {
+  const roster = buildOcrRoster(player);
+  return {
+    ...draft,
+    entries: (draft.entries as Array<Record<string, unknown>>).map((entry) => {
+      const hero = snapRosterName(String(entry.hero), roster.heroes.map((item) => item.name));
+      const heroEquipment = roster.equipment;
+      const equipment = (entry.equipment as string[]).map((item) => snapRosterName(item, heroEquipment));
+      const pet = entry.pet ? snapRosterName(String(entry.pet), roster.pets) : undefined;
+      return {
+        ...entry,
+        hero: hero.name,
+        equipment: equipment.map((item) => item.name),
+        ...(hero.unmatched || equipment.some((item) => item.unmatched) || pet?.unmatched ? { unmatched: true } : {}),
+      };
+    }),
+  };
 }

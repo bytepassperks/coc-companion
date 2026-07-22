@@ -200,6 +200,11 @@ th, td { white-space: normal; overflow-wrap: anywhere; }
 .linked-accounts { display: grid; gap: .45rem; margin-top: .8rem; padding-top: .8rem; border-top: 1px solid #634b32; }
 .linked-list { display: flex; flex-wrap: wrap; gap: .4rem; }
 .linked-tag { width: auto !important; min-height: 34px; }
+.ocr-table { display: grid; gap: .4rem; margin: .7rem 0; }
+.ocr-row { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(70px, .7fr)) auto; gap: .4rem; align-items: center; }
+.ocr-unmatched { padding: .35rem; border: 2px solid #d06b4d; border-radius: 7px; background: rgba(117, 75, 55, .35); }
+.ocr-unmatched span { color: #ffd0a8; font-size: .8rem; font-weight: 800; }
+@media (max-width: 520px) { .ocr-row { grid-template-columns: 1fr 1fr; } .ocr-row input:first-child { grid-column: 1 / -1; } }
 .settings-grid button { width: fit-content; max-width: 100%; }
 #today .dashboard-grid:last-child { grid-template-columns: 1fr; }
 #todayAskForm { max-width: 100%; }

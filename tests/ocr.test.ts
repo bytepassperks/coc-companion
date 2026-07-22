@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractJsonBlock, extractJsonBlocks, ocrPrompt, parseOcrResponse } from "../src/ocr";
+import { extractJsonBlock, extractJsonBlocks, groundArmyDraft, ocrPrompt, parseOcrResponse, snapRosterName } from "../src/ocr";
 import type { GameCatalog } from "../src/types";
 
 const catalog = {
@@ -27,6 +27,26 @@ describe("screenshot OCR drafts", () => {
     expect(ocrPrompt("builders")).toContain("Upgrade in progress");
     expect(ocrPrompt("builders")).toContain("Earthquake Spell -> level 6");
     expect(ocrPrompt("army")).toContain("EVERY troop, spell, and siege machine");
+  });
+
+  it("snaps roster names, flags unmatched names, and trusts API levels", () => {
+    expect(snapRosterName("Dragons", ["Dragon"])).toMatchObject({ name: "Dragon", unmatched: false });
+    expect(snapRosterName("Gobln", ["Dragon", "Goblin"])).toMatchObject({ name: "Goblin", unmatched: false });
+    expect(snapRosterName("Barnaby", ["Dragon", "Goblin"]).unmatched).toBe(true);
+    const grounded = groundArmyDraft({ entries: [
+      { name: "Dragons", count: 10, level: 1 },
+      { name: "Barnaby", count: 1, level: 9 },
+    ] }, { troops: [{ name: "Dragon", level: 7 }], spells: [], heroes: [], pets: [], heroEquipment: [] } as never);
+    expect(grounded.entries).toEqual([
+      { name: "Dragon", count: 10, level: 7 },
+      { name: "Barnaby", count: 1, level: 9, unmatched: true },
+    ]);
+  });
+
+  it("includes the API roster in the army prompt", () => {
+    const prompt = ocrPrompt("army", { troops: [{ name: "Dragon", level: 7 }], spells: [], heroes: [], pets: [], equipment: [] });
+    expect(prompt).toContain("Dragon");
+    expect(prompt).toContain("Every name in your answer MUST be copied");
   });
 
   it("unwraps common model response wrappers and rejects copied examples", () => {

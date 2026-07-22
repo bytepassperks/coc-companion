@@ -15,7 +15,7 @@ import type { BaseState, GameCatalog, Player, Snapshot } from "./types";
 import { actionKey } from "./checklist";
 import { authenticateUser, bearerToken, createSession, destroySession, linkUserTag, registerUser, sessionEmail, unlinkUserTag, type UserRecord } from "./auth";
 import { loadCatalog } from "./catalogLoader";
-import { OCR_TYPES, ocrPrompt, parseOcrResponse, type OcrType } from "./ocr";
+import { buildOcrRoster, groundArmyDraft, groundHeroDraft, OCR_TYPES, ocrPrompt, parseOcrResponse, type OcrRoster, type OcrType } from "./ocr";
 import { collectWatched } from "./collector";
 import { loadArtifact, predictWar } from "./model";
 import { activeTimers, expireTimers, processTimers, timerId, validateTimerInput } from "./timers";
@@ -101,6 +101,15 @@ export default {
         if (image.byteLength < 1 || image.byteLength > 4 * 1024 * 1024) throw new ValidationError("Image must be between 1 byte and 4MB");
         if (!env.AI) return json({ error: "OCR unavailable: vision AI is not configured" }, cors, 503);
         const imageBase64 = encodeBase64(new Uint8Array(image));
+        let roster: OcrRoster | undefined;
+        let apiPlayer: Player | undefined;
+        if (type === "army" || type === "hero") {
+          try {
+            const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL, cache: kvCache(env.STATE) });
+            apiPlayer = await client.getPlayer(tag);
+            roster = buildOcrRoster(apiPlayer);
+          } catch { /* retain best-effort OCR when the public player API is unavailable */ }
+        }
         const models = (env.OCR_MODELS || "@cf/meta/llama-4-scout-17b-16e-instruct,@cf/meta/llama-3.2-11b-vision-instruct,@cf/llava-hf/llava-1.5-7b-hf").split(",").map((value) => value.trim()).filter(Boolean);
         let raw: unknown;
         let parseError: unknown;
@@ -108,10 +117,13 @@ export default {
         const loaded = type === "upgrades" ? await loadCatalog(env.STATE) : undefined;
         for (const model of models) {
           try {
-            raw = await env.AI.run(model as never, { temperature: 0, max_tokens: 900, messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
+            raw = await env.AI.run(model as never, { temperature: 0, max_tokens: 900, messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType, roster) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
             if (!raw) continue;
             try {
-              const response: Record<string, unknown> = { type, draft: parseOcrResponse(raw, type as OcrType, loaded?.catalog), reviewed: false };
+              let draft = parseOcrResponse(raw, type as OcrType, loaded?.catalog);
+              if (type === "army" && apiPlayer) draft = groundArmyDraft(draft, apiPlayer);
+              if (type === "hero" && apiPlayer) draft = groundHeroDraft(draft, apiPlayer);
+              const response: Record<string, unknown> = { type, draft, reviewed: false };
               if (debug) {
                 response.raw = truncateOcrDebug(raw);
                 response.attempts = attempts;
