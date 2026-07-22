@@ -60,6 +60,22 @@ document.querySelector("#ocrRun")?.addEventListener("click", async () => {
     const image = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
     const result = await post(`/api/ocr/${encodeURIComponent(playerTag.value.trim())}`, { type, image }, true);
     ocrDraft = result.draft;
+    if (type === "army" && window.matchArmyIcons && currentPlayer) {
+      const rosterNames = [...(currentPlayer.troops || []), ...(currentPlayer.spells || [])].filter((unit) => unit.village !== "builderBase").map((unit) => unit.name);
+      try {
+        const heroNames = new Set((currentPlayer.heroes || []).map((hero) => hero.name));
+        const tileEntries = (ocrDraft.entries || []).filter((entry) => !heroNames.has(entry.name));
+        const matches = await window.matchArmyIcons(file, rosterNames, tileEntries.length);
+        tileEntries.forEach((entry, index) => {
+          const match = matches[index];
+          if (match?.confident && match.name !== entry.name) {
+            entry.name = match.name;
+            entry.unmatched = false;
+            entry.iconMatch = `Icon match (${match.confidence})`;
+          }
+        });
+      } catch { /* icon matching remains best-effort; retain the editable AI draft */ }
+    }
     renderOcrReview(type, ocrDraft);
   } catch (error) { review.innerHTML = `<p class="muted">Couldn't read this screenshot — enter the values manually. ${escapeHtml(error.message)}</p>`; }
 });
@@ -70,7 +86,7 @@ function renderOcrReview(type, draft) {
   } else if (type === "upgrades") {
     review.innerHTML = `<div class="ocr-table">${(draft.entries || []).map((row, index) => `<div class="ocr-row"><input data-ocr-row="${index}" data-ocr-field="name" value="${escapeHtml(row.name)}"><input data-ocr-row="${index}" data-ocr-field="count" type="number" min="1" value="${escapeHtml(row.count)}"><input data-ocr-row="${index}" data-ocr-field="cost" type="number" min="0" value="${escapeHtml(row.cost)}"></div>`).join("")}</div><button type="button" class="gold-button" id="ocrConfirm">Review complete — use values</button>`;
   } else if (type === "army") {
-    review.innerHTML = `<div class="ocr-table">${(draft.entries || []).map((row, index) => `<div class="ocr-row ${row.unmatched ? "ocr-unmatched" : ""}"><input data-ocr-row="${index}" data-ocr-field="name" value="${escapeHtml(row.name)}"><input data-ocr-row="${index}" data-ocr-field="count" type="number" min="0" value="${escapeHtml(row.count)}"><input data-ocr-row="${index}" data-ocr-field="level" type="number" min="0" value="${escapeHtml(row.level)}">${row.unmatched ? "<span>Check name</span>" : ""}</div>`).join("")}</div><button type="button" class="gold-button" id="ocrConfirm">Review complete — use values</button>`;
+    review.innerHTML = `<div class="ocr-table">${(draft.entries || []).map((row, index) => `<div class="ocr-row ${row.unmatched ? "ocr-unmatched" : ""}"><input data-ocr-row="${index}" data-ocr-field="name" value="${escapeHtml(row.name)}"><input data-ocr-row="${index}" data-ocr-field="count" type="number" min="0" value="${escapeHtml(row.count)}"><input data-ocr-row="${index}" data-ocr-field="level" type="number" min="0" value="${escapeHtml(row.level)}">${row.iconMatch ? `<span class="ocr-provenance">${escapeHtml(row.iconMatch)}</span>` : row.unmatched ? "<span>Check name</span>" : ""}</div>`).join("")}</div><button type="button" class="gold-button" id="ocrConfirm">Review complete — use values</button>`;
   } else {
     review.innerHTML = `<textarea class="ocr-json" id="ocrJson" rows="6">${escapeHtml(JSON.stringify(draft, null, 2))}</textarea><button type="button" class="gold-button" id="ocrConfirm">Review complete — use values</button>`;
   }

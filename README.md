@@ -1,3 +1,11 @@
+### Screenshot army icon matching
+
+Army screenshot imports remain advisory and editable. After the OCR draft returns,
+the dashboard optionally compares visible icons against roster-filtered fingerprints
+generated from the open-source [ClashKingAssets](https://github.com/ClashKingInc/ClashKingAssets)
+repository (served upstream at `assets.clashk.ing`). A confident icon match is shown
+with its provenance in the review table; it is never saved without confirmation.
+
 # CoC Companion
 
 CoC Companion is a **100% read-only** Clash of Clans companion. It uses only the official public Clash of Clans API, performs zero game-client interaction or automation, and never performs in-game actions. All actions remain manual for the human player.

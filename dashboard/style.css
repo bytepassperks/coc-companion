@@ -204,6 +204,7 @@ th, td { white-space: normal; overflow-wrap: anywhere; }
 .ocr-row { display: grid; grid-template-columns: minmax(0, 2fr) repeat(2, minmax(70px, .7fr)) auto; gap: .4rem; align-items: center; }
 .ocr-unmatched { padding: .35rem; border: 2px solid #d06b4d; border-radius: 7px; background: rgba(117, 75, 55, .35); }
 .ocr-unmatched span { color: #ffd0a8; font-size: .8rem; font-weight: 800; }
+.ocr-provenance { color: #b9e6bf; font-size: .78rem; font-weight: 700; white-space: normal; }
 @media (max-width: 520px) { .ocr-row { grid-template-columns: 1fr 1fr; } .ocr-row input:first-child { grid-column: 1 / -1; } }
 .settings-grid button { width: fit-content; max-width: 100%; }
 #today .dashboard-grid:last-child { grid-template-columns: 1fr; }
