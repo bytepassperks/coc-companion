@@ -59,6 +59,26 @@ describe("watch routes", () => {
     expect(testEnv.STATE.delete).toHaveBeenCalledWith("watch:2PYC");
   });
 
+  it("reads, links, and unlinks authenticated account tags", async () => {
+    const testEnv = env();
+    const user = { email: "test@example.com", salt: "", hash: "", createdAt: "", linkedTags: [] as string[] };
+    testEnv.STATE.get.mockImplementation((key: string) => key.startsWith("session:")
+      ? Promise.resolve({ email: user.email })
+      : key === "user:test@example.com" ? Promise.resolve(user) : Promise.resolve(null));
+    const linked = await worker.fetch(new Request("https://example.test/api/me/tags", {
+      method: "POST", headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ tag: "#2PYC" }),
+    }), testEnv as never);
+    expect(linked.status).toBe(200);
+    const me = await worker.fetch(new Request("https://example.test/api/me", { headers: { Authorization: "Bearer test-token" } }), testEnv as never);
+    expect(me.status).toBe(200);
+    const unlinked = await worker.fetch(new Request("https://example.test/api/me/tags", {
+      method: "DELETE", headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ tag: "#2PYC" }),
+    }), testEnv as never);
+    expect(unlinked.status).toBe(200);
+  });
+
   it("validates and stores manual base state", async () => {
     const testEnv = env();
     const response = await worker.fetch(new Request("https://example.test/api/base/%232PYC", {

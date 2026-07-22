@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { authenticateUser, createSession, registerUser, sessionEmail, type AuthStore } from "../src/auth";
+import { authenticateUser, createSession, linkUserTag, registerUser, sessionEmail, unlinkUserTag, type AuthStore } from "../src/auth";
 
 function store() {
   const values = new Map<string, string>();
@@ -28,5 +28,13 @@ describe("app authentication", () => {
     const token = await createSession(kv, "user@example.com");
     expect(token).toMatch(/^[0-9a-f-]{72}$/);
     expect(await sessionEmail(kv, token)).toBe("user@example.com");
+  });
+
+  it("links and unlinks up to five account tags", async () => {
+    const kv = store();
+    await registerUser(kv, "user@example.com", "password123", 1_000);
+    expect(await linkUserTag(kv, "user@example.com", "#2PYC")).toEqual(["#2PYC"]);
+    expect(await linkUserTag(kv, "user@example.com", "#R2RV")).toEqual(["#2PYC", "#R2RV"]);
+    expect(await unlinkUserTag(kv, "user@example.com", "#2PYC")).toEqual(["#R2RV"]);
   });
 });

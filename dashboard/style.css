@@ -157,3 +157,74 @@ footer { margin-top: 2rem; color: #93a6a5; font-size: .85rem; text-align: center
   .wood-card, .today-hero { padding: .85rem; }
   .action { padding: .75rem; }
 }
+
+/* Calm responsive pass: content may wrap, but is never clipped. */
+html { overflow-x: visible; }
+body { font-size: 16px; line-height: 1.5; }
+main, .tab-panel, .wood-card, .today-hero, .dashboard-grid, .analytics-grid, .settings-grid, .action-grid { min-width: 0; }
+.topbar { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(180px, 280px); align-items: center; gap: 1rem; }
+.header-identity { min-width: 0; max-width: none; overflow-wrap: anywhere; }
+.header-identity .identity-card { justify-content: flex-start; }
+.tabs { flex-wrap: wrap; overflow: visible; position: static; background: transparent; }
+.tab { white-space: normal; }
+.wood-card, .today-hero { padding: clamp(.9rem, 2vw, 1.4rem); }
+.section-banner { display: block; width: fit-content; max-width: 100%; margin: 0 0 1rem; padding: .45rem .75rem; border-radius: 7px; clip-path: none; overflow-wrap: anywhere; }
+.ribbon { max-width: 100%; transform: none; white-space: normal; overflow-wrap: anywhere; }
+.hero-topline { align-items: flex-start; }
+.war-chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.dashboard-grid, .analytics-grid, .settings-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+.action-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr)); }
+.action, .next-upgrade, .analytics-grid article, .equipment-advice { min-width: 0; overflow-wrap: anywhere; }
+.why-line, .action small, .wood-card p, pre, .feed-list li, #recommendations li { overflow-wrap: anywhere; word-break: normal; }
+.resource-line { flex-wrap: wrap; }
+.ask-form { flex-wrap: wrap; }
+.ask-form input { min-width: 0; }
+th, td { white-space: normal; overflow-wrap: anywhere; }
+.table-wrap { max-width: 100%; }
+.setup-details { margin: 1rem 0; }
+.setup-details > summary { list-style: none; cursor: pointer; padding: 1rem; border: 2px solid var(--gold-dark); border-radius: 10px; background: #2a3d3c; color: #ffe071; font-weight: 900; }
+.setup-details > summary::-webkit-details-marker { display: none; }
+.setup-details > summary::before { content: "＋"; margin-right: .5rem; }
+.setup-details[open] > summary::before { content: "−"; }
+.setup-details > summary span { display: block; color: var(--muted); font-size: .88rem; font-weight: 500; }
+.timer-editor { margin-top: .8rem; }
+.timer-editor > summary { cursor: pointer; color: var(--gold); font-weight: 800; }
+.setup-details > .wood-card, .setup-details > .manual-extra { margin: .8rem 0; }
+.manual-extra { width: 100%; }
+.magic-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+.backlog-add { grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); }
+.backlog-row { flex-wrap: wrap; overflow-wrap: anywhere; }
+.chip { max-width: 100%; min-height: 36px; white-space: normal; text-align: left; }
+.loadout-row { grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); }
+.loadout-row strong { overflow-wrap: anywhere; }
+.linked-accounts { display: grid; gap: .45rem; margin-top: .8rem; padding-top: .8rem; border-top: 1px solid #634b32; }
+.linked-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+.linked-tag { width: auto !important; min-height: 34px; }
+.settings-grid button { width: fit-content; max-width: 100%; }
+#today .dashboard-grid:last-child { grid-template-columns: 1fr; }
+#todayAskForm { max-width: 100%; }
+#todayAskForm + pre { max-height: 14rem; overflow: auto; }
+
+@media (max-width: 760px) {
+  main { padding: .7rem .65rem 2.5rem; }
+  .topbar { grid-template-columns: auto minmax(0, 1fr); align-items: start; }
+  .header-identity { grid-column: 1 / -1; text-align: left; }
+  .header-identity .identity-card { justify-content: flex-start; }
+  .brand-mark { width: 3.2rem; height: 3.2rem; }
+  h1 { font-size: clamp(1.8rem, 10vw, 3rem); }
+  .dashboard-grid, .analytics-grid, .settings-grid, .action-grid { grid-template-columns: 1fr; }
+  .settings-grid button, .backlog-add button, .ask-form button { width: 100%; }
+  .goal-row button { flex: 1 1 40%; }
+}
+
+@media (max-width: 420px) {
+  .topbar { gap: .65rem; }
+  .wood-card, .today-hero { border-width: 2px; padding: .75rem; }
+  .tabs { gap: .3rem; }
+  .tab { flex: 1 1 calc(50% - .3rem); padding: .5rem .4rem; font-size: .86rem; }
+  .hero-topline, .goal-row { gap: .4rem; }
+  .war-chip, .ribbon { font-size: .78rem; }
+  .next-upgrade { padding: .75rem; }
+  .next-move-buttons { display: grid; grid-template-columns: 1fr; }
+}
+.th-badge { white-space: nowrap; }

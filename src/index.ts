@@ -13,7 +13,7 @@ import { analyzeCapital } from "./capitalAnalytics";
 import type { Env } from "./workerTypes";
 import type { BaseState, GameCatalog, Player, Snapshot } from "./types";
 import { actionKey } from "./checklist";
-import { authenticateUser, bearerToken, createSession, destroySession, registerUser, sessionEmail } from "./auth";
+import { authenticateUser, bearerToken, createSession, destroySession, linkUserTag, registerUser, sessionEmail, unlinkUserTag, type UserRecord } from "./auth";
 import { loadCatalog } from "./catalogLoader";
 import { collectWatched } from "./collector";
 import { loadArtifact, predictWar } from "./model";
@@ -48,6 +48,24 @@ export default {
         if (!await sessionEmail(env.STATE, token)) return unauthorized(cors);
         await destroySession(env.STATE, token);
         return json({ loggedOut: true }, cors);
+      }
+      if (url.pathname === "/api/me" && request.method === "GET") {
+        const email = await requireSession(request, env);
+        if (!email) return unauthorized(cors);
+        const user = await env.STATE.get<UserRecord>(`user:${email}`, "json");
+        return json({ email, linkedTags: user?.linkedTags ?? [] }, cors);
+      }
+      if (url.pathname === "/api/me/tags" && (request.method === "POST" || request.method === "DELETE")) {
+        const email = await requireSession(request, env);
+        if (!email) return unauthorized(cors);
+        const body = await parseJson(request) as { tag?: string } | null;
+        if (!body?.tag) throw new ValidationError("tag is required");
+        assertTag(body.tag);
+        const tag = body.tag.startsWith("#") ? body.tag.toUpperCase() : `#${body.tag.toUpperCase()}`;
+        const linkedTags = request.method === "POST"
+          ? await linkUserTag(env.STATE, email, tag)
+          : await unlinkUserTag(env.STATE, email, tag);
+        return json({ email, linkedTags }, cors);
       }
       const doneMatch = url.pathname.match(/^\/api\/done\/([^/]+)$/);
       if (doneMatch && request.method === "GET") {
@@ -123,6 +141,8 @@ export default {
         }
         const next = [...current, { ...input, id: timerId(), startedAt: new Date().toISOString(), notified: false }];
         await env.STATE.put(`timers:${normalized}`, JSON.stringify(next));
+        const email = await requireSession(request, env);
+        if (email) try { await linkUserTag(env.STATE, email, tag.startsWith("#") ? tag.toUpperCase() : `#${tag.toUpperCase()}`); } catch (_) { /* legacy sessions may have no user record */ }
         return json(activeTimers(next), cors, 201);
       }
       const warMatch = url.pathname.match(/^\/api\/war\/([^/]+)$/);
@@ -240,6 +260,8 @@ export default {
         const loaded = await loadCatalog(env.STATE);
         const base = validateBase(body, loaded.catalog);
         await env.STATE.put(key, JSON.stringify(base));
+        const email = await requireSession(request, env);
+        if (email) try { await linkUserTag(env.STATE, email, tag.startsWith("#") ? tag.toUpperCase() : `#${tag.toUpperCase()}`); } catch (_) { /* legacy sessions may have no user record */ }
         await env.STATE.delete(`plan:${tag.replace(/^#/, "")}`);
         return json(base, cors);
       }

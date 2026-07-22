@@ -9,6 +9,7 @@ export interface UserRecord {
   salt: string;
   hash: string;
   createdAt: string;
+  linkedTags?: string[];
 }
 
 export interface SessionRecord {
@@ -34,9 +35,28 @@ export async function registerUser(store: AuthStore, email: string, password: st
   if (await store.get<UserRecord>(key, "json")) throw new Error("An account with that email already exists");
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const hash = await hashPassword(password, salt, iterations);
-  const record: UserRecord = { email: normalized, salt: encode(salt), hash: encode(hash), createdAt: new Date().toISOString() };
+  const record: UserRecord = { email: normalized, salt: encode(salt), hash: encode(hash), createdAt: new Date().toISOString(), linkedTags: [] };
   await store.put(key, JSON.stringify(record));
   return record;
+}
+
+export async function linkUserTag(store: AuthStore, email: string, tag: string) {
+  const key = `user:${normalizeEmail(email)}`;
+  const record = await store.get<UserRecord>(key, "json");
+  if (!record) throw new Error("Account not found");
+  const linkedTags = [...new Set([...(record.linkedTags ?? []), tag])];
+  if (linkedTags.length > 5) throw new Error("A maximum of 5 linked accounts is allowed");
+  await store.put(key, JSON.stringify({ ...record, linkedTags }));
+  return linkedTags;
+}
+
+export async function unlinkUserTag(store: AuthStore, email: string, tag: string) {
+  const key = `user:${normalizeEmail(email)}`;
+  const record = await store.get<UserRecord>(key, "json");
+  if (!record) throw new Error("Account not found");
+  const linkedTags = (record.linkedTags ?? []).filter((value) => value !== tag);
+  await store.put(key, JSON.stringify({ ...record, linkedTags }));
+  return linkedTags;
 }
 
 export async function authenticateUser(store: AuthStore, email: string, password: string, iterations = PBKDF2_ITERATIONS) {

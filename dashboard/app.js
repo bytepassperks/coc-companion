@@ -30,6 +30,32 @@ let sessionToken = localStorage.getItem("coc-session-token") || "";
 let currentPlayer;
 let toastTimer;
 
+function organizeSetupPanel() {
+  const card = document.querySelector("#settings .wood-card:nth-child(2)");
+  if (!card || card.querySelector(".setup-details")) return;
+  const details = document.createElement("details");
+  details.className = "setup-details";
+  const summary = document.createElement("summary");
+  summary.innerHTML = "Set up my base <span>Manual planning inputs · one Save</span>";
+  details.append(summary);
+  while (card.firstChild) details.append(card.firstChild);
+  document.querySelectorAll(".manual-extra").forEach(section => details.append(section));
+  card.append(details);
+}
+organizeSetupPanel();
+function organizeTodayTimers() {
+  const form = document.querySelector("#timerForm");
+  if (!form || form.closest("details")) return;
+  const details = document.createElement("details");
+  details.className = "timer-editor";
+  const summary = document.createElement("summary");
+  summary.textContent = "＋ Add or update a timer";
+  details.append(summary);
+  form.parentNode.insertBefore(details, form);
+  details.append(form);
+}
+organizeTodayTimers();
+
 apiBase.value = localStorage.getItem("coc-api-base") || "https://coc-companion.getlaunchpod.workers.dev";
 playerTag.value = localStorage.getItem("coc-player-tag") || "";
 
@@ -314,11 +340,23 @@ function resourceCost(cost, resource) { if (cost === undefined) return "Manual i
 function readBase() { const number = id => document.querySelector(`#${id}`).value === "" ? undefined : Number(document.querySelector(`#${id}`).value); const selected = id => [...document.querySelectorAll(`#${id} input:checked`)].map(input => input.value); const sameArmy = document.querySelector("#sameArmy").checked; const heroLoadouts = {}; document.querySelectorAll("[data-loadout-hero]").forEach(select => { const hero = select.dataset.loadoutHero; heroLoadouts[hero] ||= { equipment: [] }; if (select.dataset.loadoutSlot === "equipment" && select.value && !heroLoadouts[hero].equipment.includes(select.value)) heroLoadouts[hero].equipment.push(select.value); if (select.dataset.loadoutSlot === "pet" && select.value) heroLoadouts[hero].pet = select.value; }); const magicItems = {}; document.querySelectorAll("[data-magic-item]").forEach(input => { magicItems[input.dataset.magicItem] = Number(input.value || 0); }); return { buildersTotal: number("buildersTotal"), buildersFree: number("buildersFree"), labBusy: document.querySelector("#labBusy").checked, resources: { gold: number("gold"), elixir: number("elixir"), darkElixir: number("darkElixir") }, oreShiny: number("oreShiny"), oreGlowy: number("oreGlowy"), oreStarry: number("oreStarry"), wallLevel: number("wallLevel"), wallCount: number("wallCount"), magicItems, clanGamesActive: document.querySelector("#clanGamesActive").checked, builderBacklog: builderBacklogRows, heroLineup: [...document.querySelectorAll("#heroLineup input:checked")].map(input => input.value), heroLoadouts, warArmy: selected("warArmy"), homeArmy: sameArmy ? selected("warArmy") : selected("homeArmy"), sameArmy, goal: document.querySelector("#goal").value }; }
 function writeBase(base) { for (const id of ["buildersTotal", "buildersFree", "oreShiny", "oreGlowy", "oreStarry", "wallLevel", "wallCount"]) if (base[id] !== undefined) document.querySelector(`#${id}`).value = base[id]; for (const id of ["gold", "elixir", "darkElixir"]) if (base.resources?.[id] !== undefined) document.querySelector(`#${id}`).value = base.resources[id]; document.querySelector("#labBusy").checked = Boolean(base.labBusy); document.querySelector("#clanGamesActive").checked = Boolean(base.clanGamesActive); document.querySelectorAll("[data-magic-item]").forEach(input => { input.value = base.magicItems?.[input.dataset.magicItem] ?? 0; }); builderBacklogRows = base.builderBacklog || []; renderBuilderBacklog(); if (base.goal) document.querySelector("#goal").value = base.goal; document.querySelectorAll("[data-goal]").forEach(button => button.classList.toggle("active", button.dataset.goal === base.goal)); }
 async function ask(event, output = "#answer") { event.preventDefault(); const question = output === "#todayAnswer" ? document.querySelector("#todayQuestion").value : document.querySelector("#question").value; try { document.querySelector(output).textContent = (await post("/api/ask", { tag: playerTag.value.trim(), question })).answer; } catch (error) { showToast(error.message); } }
-async function get(path) { return parse(await fetch(apiBase.value.replace(/\/$/, "") + path)); }
+async function get(path, authenticated = false) { const headers = authenticated && sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}; return parse(await fetch(apiBase.value.replace(/\/$/, "") + path, { headers })); }
 async function post(path, body, authenticated = false, method = "POST") { const headers = { "Content-Type": "application/json" }; if (authenticated && sessionToken) headers.Authorization = `Bearer ${sessionToken}`; return parse(await fetch(apiBase.value.replace(/\/$/, "") + path, { method, headers, body: JSON.stringify(body) })); }
 async function authenticate(path) { try { const result = await post(path, { email: authEmail.value, password: authPassword.value }); if (path.endsWith("register")) return setAuthStatus("Registered. Log in to continue."); sessionToken = result.token; localStorage.setItem("coc-session-token", sessionToken); setAuthStatus("Logged in."); updateAuthState(); await load(); } catch (error) { setAuthStatus(error.message); } }
-function updateAuthState() { logoutButton.classList.toggle("hidden", !sessionToken); document.querySelector("#login").classList.toggle("hidden", Boolean(sessionToken)); document.querySelector("#register").classList.toggle("hidden", Boolean(sessionToken)); }
+function updateAuthState() { logoutButton.classList.toggle("hidden", !sessionToken); document.querySelector("#login").classList.toggle("hidden", Boolean(sessionToken)); document.querySelector("#register").classList.toggle("hidden", Boolean(sessionToken)); loadLinkedAccounts(); }
 function setAuthStatus(value) { authStatus.textContent = value; }
+async function loadLinkedAccounts() {
+  const target = document.querySelector("#linkedAccounts");
+  if (!target || !sessionToken) { if (target) target.innerHTML = ""; return; }
+  try {
+    const value = await get("/api/me", true);
+    target.innerHTML = `<strong>Linked accounts</strong>${value.linkedTags?.length ? `<div class="linked-list">${value.linkedTags.map(tag => `<button type="button" class="chip linked-tag" data-linked-tag="${escapeHtml(tag)}">${escapeHtml(tag)}</button>`).join("")}</div>` : `<p class="muted">No linked accounts yet. Saving a base or timer links it automatically.</p>`}`;
+    target.querySelectorAll("[data-linked-tag]").forEach(button => button.addEventListener("click", () => {
+      playerTag.value = button.dataset.linkedTag;
+      load();
+    }));
+  } catch (_) { target.innerHTML = ""; }
+}
 function setLoading(loading) { document.querySelector("#todayIdentity").classList.toggle("skeleton-block", loading); if (loading) document.querySelector("#todayNextUpgrade").innerHTML = ""; }
 function showToast(message) { toast.textContent = message; toast.classList.add("show"); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove("show"), 4200); }
 async function parse(response) { const body = await response.json(); if (!response.ok) throw new Error(body.error || "Request failed"); return body; }
