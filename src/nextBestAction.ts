@@ -252,7 +252,7 @@ export function getNextBestActions(
   }
   if (base?.builderBacklog?.length) {
     for (const entry of base.builderBacklog) {
-      const busy = Boolean(timerContext?.buildersBusy);
+      const busy = Boolean(timerContext?.buildersBusy) || base?.buildersFree === 0;
       const target = entry.targetLevel === undefined ? "" : ` to inferred level ${entry.targetLevel}`;
       const count = entry.count > 1 ? ` (${entry.count} queued)` : "";
       const notes = [`Manual builder backlog${count}.`];
@@ -326,7 +326,11 @@ export function getNextBestActions(
   const otherUpgrades = rankedUpgrades.filter((candidate) => !candidate.prioritySelected && candidate.category !== "builder backlog");
   const unlocks = candidates.filter((candidate) => candidate.kind === "unlock");
   const hints = candidates.filter((candidate) => candidate.kind === "hint").sort((a, b) => b.score - a.score);
-  return [...priorityUpgrades, ...backlogUpgrades, ...otherUpgrades.slice(0, 3), ...unlocks, ...otherUpgrades.slice(3), ...hints]
+  const buildersUnavailable = Boolean(timerContext?.buildersBusy) || base?.buildersFree === 0;
+  const ordered = buildersUnavailable
+    ? [...priorityUpgrades, ...otherUpgrades.slice(0, 3), ...backlogUpgrades, ...unlocks, ...otherUpgrades.slice(3), ...hints]
+    : [...priorityUpgrades, ...backlogUpgrades, ...otherUpgrades.slice(0, 3), ...unlocks, ...otherUpgrades.slice(3), ...hints];
+  return ordered
     .slice(0, 20)
     .map(({ kind: _kind, rawCost: _cost, rawTime: _time, strategic: _strategic, availability: _availability, gate: _gate, confidenceFactor: _confidence, prioritySelected: _prioritySelected, ...action }) => action);
 }
