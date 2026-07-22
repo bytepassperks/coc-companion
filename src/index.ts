@@ -113,7 +113,7 @@ export default {
         const models = (env.OCR_MODELS || "@cf/meta/llama-4-scout-17b-16e-instruct,@cf/meta/llama-3.2-11b-vision-instruct,@cf/llava-hf/llava-1.5-7b-hf").split(",").map((value) => value.trim()).filter(Boolean);
         let raw: unknown;
         let parseError: unknown;
-        const attempts: Array<{ model: string; error: string }> = [];
+        const attempts: Array<{ model: string; error: string; raw?: unknown }> = [];
         const loaded = type === "upgrades" ? await loadCatalog(env.STATE) : undefined;
         for (const model of models) {
           try {
@@ -131,7 +131,7 @@ export default {
               return json(response, cors);
             } catch (error) {
               parseError = error;
-              attempts.push({ model, error: error instanceof Error ? error.message : "invalid model output" });
+              attempts.push({ model, error: error instanceof Error ? error.message : "invalid model output", ...(debug ? { raw: truncateOcrDebug(raw) } : {}) });
             }
           } catch (error) {
             attempts.push({ model, error: error instanceof Error ? error.message : "vision model failed" });

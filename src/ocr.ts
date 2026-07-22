@@ -114,7 +114,7 @@ export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCata
     if ((parsed as unknown[]).length > 8) throw new Error("OCR hero data contains too many heroes");
     return { entries: (parsed as unknown[]).map((item) => {
       const value = item as Record<string, unknown>;
-      if (!value || !names(value.hero, 40) || !Array.isArray(value.equipment) || value.equipment.length > 8 || !value.equipment.every((name) => names(name, 60)) || (value.pet !== undefined && !names(value.pet, 60))) throw new Error("OCR returned invalid hero data");
+      if (!value || !names(value.hero, 40) || !Array.isArray(value.equipment) || value.equipment.length > 8 || !value.equipment.every((name) => names(name, 60)) || (value.pet !== undefined && value.pet !== null && !names(value.pet, 60))) throw new Error("OCR returned invalid hero data");
       return { hero: (value.hero as string).trim(), equipment: (value.equipment as string[]).map((name) => name.trim()), ...(value.pet ? { pet: (value.pet as string).trim() } : {}) };
     }) };
   }
