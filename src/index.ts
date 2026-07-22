@@ -100,19 +100,21 @@ export default {
         const imageBase64 = encodeBase64(new Uint8Array(image));
         const models = (env.OCR_MODELS || "@cf/meta/llama-3.2-11b-vision-instruct,@cf/llava-hf/llava-1.5-7b-hf").split(",").map((value) => value.trim()).filter(Boolean);
         let raw: unknown;
+        let parseError: unknown;
+        const loaded = type === "upgrades" ? await loadCatalog(env.STATE) : undefined;
         for (const model of models) {
           try {
-            raw = await env.AI.run(model as never, { messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
-            if (raw) break;
+            raw = await env.AI.run(model as never, { temperature: 0, max_tokens: 700, messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
+            if (!raw) continue;
+            try {
+              return json({ type, draft: parseOcrResponse(raw, type as OcrType, loaded?.catalog), reviewed: false }, cors);
+            } catch (error) {
+              parseError = error;
+            }
           } catch { /* try the next configured vision model */ }
         }
         if (!raw) return json({ error: "OCR unavailable: no configured vision model could read this image" }, cors, 503);
-        try {
-          const loaded = type === "upgrades" ? await loadCatalog(env.STATE) : undefined;
-          return json({ type, draft: parseOcrResponse(raw, type as OcrType, loaded?.catalog), reviewed: false }, cors);
-        } catch (error) {
-          return json({ error: `OCR could not produce a safe draft: ${error instanceof Error ? error.message : "invalid model output"}` }, cors, 422);
-        }
+        return json({ error: `OCR could not produce a safe draft: ${parseError instanceof Error ? parseError.message : "invalid model output"}` }, cors, 422);
       }
       const doneMatch = url.pathname.match(/^\/api\/done\/([^/]+)$/);
       if (doneMatch && request.method === "GET") {

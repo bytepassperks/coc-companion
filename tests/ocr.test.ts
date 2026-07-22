@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseOcrResponse } from "../src/ocr";
+import { extractJsonBlock, parseOcrResponse } from "../src/ocr";
 import type { GameCatalog } from "../src/types";
 
 const catalog = {
@@ -7,6 +7,11 @@ const catalog = {
 } as GameCatalog;
 
 describe("screenshot OCR drafts", () => {
+  it("recovers balanced JSON from fences and trailing prose", () => {
+    expect(extractJsonBlock('Here you go:\n```json\n[{"name":"Dragon","count":1,"level":7}]\n```\nDone.')).toBe('[{"name":"Dragon","count":1,"level":7}]');
+    expect(parseOcrResponse('Sure: [{"name":"Dragon","count":1,"level":7}] trailing commentary', "army").entries).toHaveLength(1);
+  });
+
   it("validates typed JSON and wires upgrades through cost inference", () => {
     const result = parseOcrResponse(JSON.stringify([{ name: "X-Bow", count: 1, cost: 8000000 }]), "upgrades", catalog);
     expect((result.entries as Array<{ targetLevel?: number }>)[0].targetLevel).toBe(11);

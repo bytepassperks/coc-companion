@@ -104,6 +104,20 @@ describe("watch routes", () => {
     expect(await response.json()).toMatchObject({ type: "army", reviewed: false, draft: { entries: [{ name: "Dragon" }] } });
   });
 
+  it("tries the fallback vision model when the first response is not parseable", async () => {
+    const testEnv = env();
+    const run = vi.fn()
+      .mockResolvedValueOnce({ response: "I cannot return JSON." })
+      .mockResolvedValueOnce({ response: "```json\n[{\"name\":\"Dragon\",\"count\":10,\"level\":7}]\n``` trailing note" });
+    (testEnv as unknown as { AI: unknown }).AI = { run };
+    const response = await worker.fetch(new Request("https://example.test/api/ocr/%232PYC", {
+      method: "POST", headers: { Authorization: "Bearer test-token", "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "army", image: `data:image/jpeg;base64,${btoa("small-image")}` }),
+    }), testEnv as never);
+    expect(response.status).toBe(200);
+    expect(run).toHaveBeenCalledTimes(2);
+  });
+
   it("validates and stores manual base state", async () => {
     const testEnv = env();
     const response = await worker.fetch(new Request("https://example.test/api/base/%232PYC", {

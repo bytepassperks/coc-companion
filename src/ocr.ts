@@ -6,13 +6,40 @@ export const OCR_TYPES = ["upgrades", "builders", "army", "hero", "ores"] as con
 export type OcrType = typeof OCR_TYPES[number];
 export type OcrDraft = Record<string, unknown>;
 
+export function extractJsonBlock(text: string) {
+  const unfenced = text.replace(/```(?:json)?/gi, "").replace(/```/g, "");
+  for (let start = 0; start < unfenced.length; start += 1) {
+    if (unfenced[start] !== "[" && unfenced[start] !== "{") continue;
+    const stack: string[] = [];
+    let quoted = false;
+    let escaped = false;
+    for (let index = start; index < unfenced.length; index += 1) {
+      const character = unfenced[index];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (character === "\\") escaped = true;
+        else if (character === "\"") quoted = false;
+        continue;
+      }
+      if (character === "\"") { quoted = true; continue; }
+      if (character === "[" || character === "{") stack.push(character);
+      else if (character === "]" || character === "}") {
+        const opener = stack.pop();
+        if ((character === "]" && opener !== "[") || (character === "}" && opener !== "{")) break;
+        if (!stack.length) return unfenced.slice(start, index + 1);
+      }
+    }
+  }
+  return undefined;
+}
+
 const names = (value: unknown, max = 40) => typeof value === "string" && value.trim().length > 0 && value.trim().length <= max;
 const integer = (value: unknown, min = 0, max = 400) => typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
 
 export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCatalog): OcrDraft {
   const text = typeof raw === "string" ? raw : extractAiText(raw);
   if (!text) throw new Error("OCR returned no structured data");
-  const candidates = [text, text.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1] ?? "", text.match(/\{[\s\S]*\}/)?.[0] ?? "", text.match(/\[[\s\S]*\]/)?.[0] ?? ""];
+  const candidates = [extractJsonBlock(text), text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim()].filter((candidate): candidate is string => Boolean(candidate));
   let parsed: unknown;
   for (const candidate of candidates) {
     try { if (candidate.trim()) { parsed = JSON.parse(candidate); break; } } catch { /* untrusted model output */ }
@@ -65,5 +92,5 @@ export function ocrPrompt(type: OcrType) {
     hero: '[{"hero":"Barbarian King","equipment":["Spiky Ball","Snake Bracelet"],"pet":"Frosty"}]',
     ores: '{"shiny":1088,"glowy":187,"starry":467,"magicItems":{"bookOfHeroes":1}}',
   };
-  return `Read this Clash of Clans screenshot. Return ONLY valid JSON matching this schema, never markdown. If a value is unreadable, omit that entry rather than guessing. Schema: ${schemas[type]}`;
+  return `Read this Clash of Clans screenshot. Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact one-shot format and no other keys: ${schemas[type]}. If a value is unreadable, omit that entry rather than guessing.`;
 }
