@@ -292,6 +292,24 @@ export interface BaseState {
   homeArmy?: string[];
   sameArmy?: boolean;
   heroLoadouts?: Record<string, { equipment: string[]; pet?: string }>;
+  wallLevel?: number;
+  wallCount?: number;
+  magicItems?: Partial<Record<
+    "bookOfHeroes" | "bookOfFighting" | "bookOfSpells" | "bookOfBuilding" |
+    "bookOfEverything" | "hammerOfHeroes" | "hammerOfFighting" | "hammerOfSpells" |
+    "hammerOfBuilding" | "researchPotion" | "builderPotion" | "wallRing" |
+    "runeGold" | "runeElixir" | "runeDark",
+    number
+  >>;
+  clanGamesActive?: boolean;
+  builderBacklog?: Array<{
+    name: string;
+    count: number;
+    cost: number;
+    resource?: string;
+    targetLevel?: number;
+    provenance?: "inferred from cost" | "inferred from discounted cost (Gold Pass boost)";
+  }>;
   buildingLevels?: Record<string, number[]>;
   updatedAt: string;
 }

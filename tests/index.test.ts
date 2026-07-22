@@ -82,6 +82,20 @@ describe("watch routes", () => {
     }), testEnv as never);
     expect(loadout.status).toBe(200);
     expect(testEnv.STATE.put).toHaveBeenCalledWith("base:2PYC", expect.stringContaining('"heroLoadouts"'));
+    const manual = await worker.fetch(new Request("https://example.test/api/base/%232PYC", {
+      method: "POST",
+      body: JSON.stringify({ wallLevel: 15, wallCount: 120, magicItems: { bookOfHeroes: 1, hammerOfFighting: 2 }, clanGamesActive: true }),
+      headers: { "Content-Type": "application/json", Authorization: "Bearer test-token" },
+    }), testEnv as never);
+    expect(manual.status).toBe(200);
+    const badWalls = await worker.fetch(new Request("https://example.test/api/base/%232PYC", {
+      method: "POST", body: JSON.stringify({ wallLevel: 19, wallCount: 351 }), headers: { "Content-Type": "application/json", Authorization: "Bearer test-token" },
+    }), testEnv as never);
+    expect(badWalls.status).toBe(400);
+    const badBacklog = await worker.fetch(new Request("https://example.test/api/base/%232PYC", {
+      method: "POST", body: JSON.stringify({ builderBacklog: Array.from({ length: 26 }, () => ({ name: "X-Bow", count: 1, cost: 100 })) }), headers: { "Content-Type": "application/json", Authorization: "Bearer test-token" },
+    }), testEnv as never);
+    expect(badBacklog.status).toBe(400);
   });
 
   it("returns a rules-only plan when Workers AI is absent", async () => {

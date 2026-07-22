@@ -20,6 +20,7 @@ import { loadArtifact, predictWar } from "./model";
 import { activeTimers, expireTimers, processTimers, timerId, validateTimerInput } from "./timers";
 import { calculateRushScore } from "./rushScore";
 import { adviseEquipment } from "./equipmentAdvisor";
+import { inferBuilderBacklog } from "./builderBacklog";
 
 class ValidationError extends Error {}
 
@@ -236,7 +237,8 @@ export default {
         if (request.method === "GET") return json((await env.STATE.get(key, "json")) ?? null, cors);
         if (!await requireSession(request, env)) return unauthorized(cors);
         const body = await parseJson(request);
-        const base = validateBase(body);
+        const loaded = await loadCatalog(env.STATE);
+        const base = validateBase(body, loaded.catalog);
         await env.STATE.put(key, JSON.stringify(base));
         await env.STATE.delete(`plan:${tag.replace(/^#/, "")}`);
         return json(base, cors);
@@ -414,7 +416,7 @@ async function getSnapshot(tag: string, client: CocClient, state: KVNamespace): 
   return { fetchedAt: new Date().toISOString(), player };
 }
 
-function validateBase(input: unknown): BaseState {
+function validateBase(input: unknown, catalog?: GameCatalog): BaseState {
   if (!input || typeof input !== "object") throw new ValidationError("Base state must be an object");
   const body = input as Record<string, unknown>;
   const number = (value: unknown, name: string) => {
@@ -447,6 +449,55 @@ function validateBase(input: unknown): BaseState {
   const oreShiny = number(body.oreShiny, "oreShiny");
   const oreGlowy = number(body.oreGlowy, "oreGlowy");
   const oreStarry = number(body.oreStarry, "oreStarry");
+  const wallLevel = body.wallLevel === undefined ? undefined : (() => {
+    if (!Number.isInteger(body.wallLevel) || Number(body.wallLevel) < 1 || Number(body.wallLevel) > 18) throw new ValidationError("wallLevel must be an integer from 1 to 18");
+    return Number(body.wallLevel);
+  })();
+  const wallCount = body.wallCount === undefined ? undefined : (() => {
+    if (!Number.isInteger(body.wallCount) || Number(body.wallCount) < 0 || Number(body.wallCount) > 350) throw new ValidationError("wallCount must be an integer from 0 to 350");
+    return Number(body.wallCount);
+  })();
+  const magicItemNames = [
+    "bookOfHeroes", "bookOfFighting", "bookOfSpells", "bookOfBuilding", "bookOfEverything",
+    "hammerOfHeroes", "hammerOfFighting", "hammerOfSpells", "hammerOfBuilding",
+    "researchPotion", "builderPotion", "wallRing", "runeGold", "runeElixir", "runeDark",
+  ] as const;
+  let magicItems: BaseState["magicItems"];
+  if (body.magicItems !== undefined) {
+    if (!body.magicItems || typeof body.magicItems !== "object") throw new ValidationError("magicItems must be an object");
+    magicItems = {};
+    for (const name of magicItemNames) {
+      const value = (body.magicItems as Record<string, unknown>)[name];
+      if (value !== undefined && (!Number.isInteger(value) || Number(value) < 0 || Number(value) > 99)) {
+        throw new ValidationError(`${name} must be an integer from 0 to 99`);
+      }
+      if (value !== undefined) magicItems[name] = Number(value);
+    }
+  }
+  const clanGamesActive = body.clanGamesActive === undefined ? undefined : (() => {
+    if (typeof body.clanGamesActive !== "boolean") throw new ValidationError("clanGamesActive must be a boolean");
+    return body.clanGamesActive;
+  })();
+  let builderBacklog: BaseState["builderBacklog"];
+  if (body.builderBacklog !== undefined) {
+    if (!Array.isArray(body.builderBacklog) || body.builderBacklog.length > 25) throw new ValidationError("builderBacklog must contain up to 25 entries");
+    const parsedBacklog = (body.builderBacklog as unknown[]).map((raw) => {
+      if (!raw || typeof raw !== "object") throw new ValidationError("Each builder backlog entry must be an object");
+      const value = raw as Record<string, unknown>;
+      if (typeof value.name !== "string" || !value.name.trim() || value.name.trim().length > 40) throw new ValidationError("Builder backlog names must be 1-40 characters");
+      if (!Number.isInteger(value.count) || Number(value.count) < 1 || Number(value.count) > 400) throw new ValidationError("Builder backlog count must be an integer from 1 to 400");
+      if (typeof value.cost !== "number" || !Number.isFinite(value.cost) || value.cost < 0) throw new ValidationError("Builder backlog cost must be non-negative");
+      const name = value.name.trim();
+      const cost = Number(value.cost);
+      return {
+        name,
+        count: Number(value.count),
+        cost,
+        resource: typeof value.resource === "string" && value.resource.trim() ? value.resource.trim() : undefined,
+      };
+    });
+    builderBacklog = catalog ? inferBuilderBacklog(parsedBacklog, catalog) : parsedBacklog;
+  }
   let heroLineup: string[] | undefined;
   if (body.heroLineup !== undefined) {
     if (!Array.isArray(body.heroLineup) || body.heroLineup.length > 4 || body.heroLineup.some((name) => typeof name !== "string" || !name.trim())) {
@@ -490,6 +541,11 @@ function validateBase(input: unknown): BaseState {
     homeArmy: sameArmy ? warArmy : homeArmy,
     sameArmy,
     heroLoadouts,
+    wallLevel,
+    wallCount,
+    magicItems,
+    clanGamesActive,
+    builderBacklog,
     buildingLevels,
     updatedAt: new Date().toISOString(),
   };

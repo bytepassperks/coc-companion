@@ -19,6 +19,7 @@ type Candidate = NextBestAction & {
   prioritySelected?: boolean;
   thCapLevel?: number;
   activeTimer?: boolean;
+  magicSuggestion?: string;
 };
 
 export interface TimerContext {
@@ -46,6 +47,34 @@ function durationLabel(seconds: number) {
 }
 
 const roles = roleConfig as { categories: Record<string, string>; units: Record<string, string> };
+const magicSuggestions: Record<string, string[]> = {
+  "hero upgrade": ["bookOfHeroes", "hammerOfHeroes", "bookOfEverything"],
+  "lab upgrade": ["bookOfFighting", "hammerOfFighting", "bookOfSpells", "hammerOfSpells", "bookOfEverything", "researchPotion"],
+  "building upgrade": ["bookOfBuilding", "hammerOfBuilding", "bookOfEverything", "builderPotion"],
+};
+const magicLabels: Record<string, string> = {
+  bookOfHeroes: "Book of Heroes", bookOfFighting: "Book of Fighting", bookOfSpells: "Book of Spells",
+  bookOfBuilding: "Book of Building", bookOfEverything: "Book of Everything",
+  hammerOfHeroes: "Hammer of Heroes", hammerOfFighting: "Hammer of Fighting",
+  hammerOfSpells: "Hammer of Spells", hammerOfBuilding: "Hammer of Building",
+  researchPotion: "Research Potion", builderPotion: "Builder Potion",
+};
+const builderImpact: Record<string, number> = {
+  "X-Bow": 2.2, "Wizard Tower": 2.1, "Hidden Tesla": 2.1, "Bomb Tower": 2,
+  "Town Hall": 1.9, "Town Hall Weapon": 1.9, "Seeking Air Mine": 1.5, "Giant Bomb": 1.5,
+  "Air Bomb": 1.4, "Spring Trap": 1.3, "Bomb": 1.3, "Wall": 1.1,
+  "Dark Elixir Storage": 1, "Elixir Storage": 1, "Gold Storage": 1,
+  "Elixir Collector": .9, "Gold Mine": .9, "Dark Elixir Drill": .9,
+  "Builder's Hut": .8,
+};
+function builderImpactFor(name: string) {
+  const exact = builderImpact[name];
+  if (exact) return exact;
+  if (/wall/i.test(name)) return builderImpact.Wall;
+  if (/trap|mine|bomb/i.test(name)) return 1.4;
+  if (/storage|collector|drill|mine|hut/i.test(name)) return .9;
+  return 1.2;
+}
 
 export function getNextBestActions(
   player: Player,
@@ -86,6 +115,13 @@ export function getNextBestActions(
       const normalizedLabel = label.trim().toLowerCase();
       return normalizedLabel && (normalizedSubject.includes(normalizedLabel) || normalizedLabel.includes(normalizedSubject));
     }));
+    const ownedMagic = (magicSuggestions[category] ?? []).find((item) => (base?.magicItems?.[item as keyof NonNullable<BaseState["magicItems"]>] ?? 0) > 0);
+    const magicSuggestion = ownedMagic ? (() => {
+      const label = magicLabels[ownedMagic];
+      if (ownedMagic.endsWith("Potion")) return `${label} can accelerate this ${category === "lab upgrade" ? "laboratory" : "builder"} work while it is busy.`;
+      return `You own a ${label} — it can instantly finish this ${category === "hero upgrade" ? "hero" : category === "lab upgrade" ? "lab" : "building"} upgrade; consider it for the longest queued upgrade.`;
+    })() : undefined;
+    if (magicSuggestion) notes.push(magicSuggestion);
     const prioritySelected = (armySelected || lineupSelected) && !activeTimer;
     if (armySelected) {
       strategic *= 1.5;
@@ -121,6 +157,7 @@ export function getNextBestActions(
       prioritySelected,
       thCapLevel: (item as { thCapLevel?: number }).thCapLevel,
       activeTimer,
+      magicSuggestion,
       availability: activeTimer ? 0.35 : affordable === false ? 0.65 : 1,
     });
   };
@@ -185,6 +222,64 @@ export function getNextBestActions(
       kind: "hint",
     });
   }
+  if (base?.wallLevel !== undefined || base?.wallCount !== undefined) {
+    const count = base.wallCount ?? 0;
+    const level = base.wallLevel ?? 0;
+    candidates.push({
+      action: "Plan wall upgrades",
+      category: "walls",
+      subject: "Walls",
+      score: 0.8,
+      confidence: "community_consensus",
+      provenance: "calculated",
+      notes: ["Wall level and count are manual inputs; the public API does not expose wall progress."],
+      why: `About ${count} walls are recorded at level ${level}; use overflow loot and Star Bonuses to catch them up.`,
+      kind: "hint",
+    });
+  }
+  if (base?.clanGamesActive) {
+    candidates.push({
+      action: "Complete Clan Games challenges",
+      category: "clan games",
+      subject: "Clan Games",
+      score: 0.9,
+      confidence: "community_consensus",
+      provenance: "calculated",
+      notes: ["Clan Games can award useful books, hammers, and potions; rewards are advisory and claimed manually."],
+      why: "Clan Games can provide magic-item rewards such as books, hammers, and potions; complete useful challenges manually while active.",
+      kind: "hint",
+    });
+  }
+  if (base?.builderBacklog?.length) {
+    for (const entry of base.builderBacklog) {
+      const busy = Boolean(timerContext?.buildersBusy);
+      const target = entry.targetLevel === undefined ? "" : ` to inferred level ${entry.targetLevel}`;
+      const count = entry.count > 1 ? ` (${entry.count} queued)` : "";
+      const notes = [`Manual builder backlog${count}.`];
+      if (busy) notes.push("All builders are busy according to active timers; keep this queued until one frees.");
+      candidates.push({
+        action: `Upgrade ${entry.name}`,
+        category: "builder backlog",
+        subject: entry.name,
+        targetLevel: entry.targetLevel,
+        cost: entry.cost,
+        resource: entry.resource,
+        timeSeconds: 86400,
+        score: 0,
+        confidence: "community_consensus",
+        provenance: entry.provenance === "inferred from cost" ? "calculated" : "estimated",
+        notes,
+        why: `${entry.name}${target} costs ${entry.cost.toLocaleString()} ${entry.resource ?? "resource"}; ${busy ? "all builders are busy, so keep it queued." : "this is a builder-ready backlog option."}`,
+        kind: "upgrade",
+        rawCost: entry.cost,
+        rawTime: 86400,
+        strategic: builderImpactFor(entry.name),
+        gate: busy ? .3 : 1,
+        confidenceFactor: entry.targetLevel === undefined ? .75 : .9,
+        availability: 1,
+      });
+    }
+  }
 
   const upgrades = candidates.filter((candidate) => candidate.kind === "upgrade");
   const medianCost = median(upgrades.map((candidate) => candidate.rawCost ?? 0));
@@ -201,6 +296,7 @@ export function getNextBestActions(
   }
   for (const candidate of candidates) {
     if (candidate.kind !== "upgrade") continue;
+    if (candidate.category === "builder backlog") continue;
     const role = roles.units[candidate.subject] ?? roles.categories[candidate.category] ?? "useful progression";
     const factors: string[] = [];
     if (candidate.thCapLevel && candidate.thCapLevel > (candidate.targetLevel ?? 1) - 1) {
@@ -216,6 +312,7 @@ export function getNextBestActions(
     factors.push(`${durationLabel(candidate.rawTime ?? 0)} ${candidate.category === "lab upgrade" ? "in the laboratory" : "of upgrade time"}`);
     if (candidate.category === "lab upgrade" && timerContext?.buildersBusy) factors.push("lab work while all builders are busy");
     if (candidate.activeTimer) factors.push("already in progress (timer)");
+    if (candidate.magicSuggestion) factors.push(candidate.magicSuggestion);
     if (goal !== "balanced") factors.push(`supports your ${goal} goal`);
     candidate.why = `${candidate.subject} is ${role}; ${factors.slice(0, 4).join(", ")}.`;
   }
@@ -225,10 +322,11 @@ export function getNextBestActions(
 
   const rankedUpgrades = upgrades.sort((a, b) => Number(Boolean(b.prioritySelected)) - Number(Boolean(a.prioritySelected)) || b.score - a.score);
   const priorityUpgrades = rankedUpgrades.filter((candidate) => candidate.prioritySelected);
-  const otherUpgrades = rankedUpgrades.filter((candidate) => !candidate.prioritySelected);
+  const backlogUpgrades = rankedUpgrades.filter((candidate) => candidate.category === "builder backlog");
+  const otherUpgrades = rankedUpgrades.filter((candidate) => !candidate.prioritySelected && candidate.category !== "builder backlog");
   const unlocks = candidates.filter((candidate) => candidate.kind === "unlock");
-  const hints = candidates.filter((candidate) => candidate.kind === "hint");
-  return [...priorityUpgrades, ...otherUpgrades.slice(0, 3), ...unlocks, ...otherUpgrades.slice(3), ...hints]
+  const hints = candidates.filter((candidate) => candidate.kind === "hint").sort((a, b) => b.score - a.score);
+  return [...priorityUpgrades, ...backlogUpgrades, ...otherUpgrades.slice(0, 3), ...unlocks, ...otherUpgrades.slice(3), ...hints]
     .slice(0, 20)
     .map(({ kind: _kind, rawCost: _cost, rawTime: _time, strategic: _strategic, availability: _availability, gate: _gate, confidenceFactor: _confidence, prioritySelected: _prioritySelected, ...action }) => action);
 }

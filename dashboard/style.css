@@ -120,6 +120,11 @@ fieldset { min-width: 0; border: 1px solid #536679; border-radius: .5rem; paddin
 .loadout-row { display: grid; gap: .4rem; margin: .55rem 0; padding: .5rem; border-bottom: 1px solid #31485a; }
 .settings-grid small { color: #b8c8d2; line-height: 1.35; }
 .timer-presets .chip, #builderDefaults .chip { cursor: pointer; background: #172c3d; color: #f4d98a; }
+.magic-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .5rem; }
+.manual-extra { margin-top: 1rem; }
+.backlog-add { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: .5rem; margin-top: .7rem; }
+.backlog-row { display: flex; justify-content: space-between; gap: .6rem; align-items: center; padding: .45rem 0; border-bottom: 1px solid #31485a; }
+@media (max-width: 700px) { .backlog-add { grid-template-columns: 1fr 1fr; } }
 .game-data-meta { display: block; margin-top: .8rem; color: #d7bd70; }
 .feed-list { padding-left: 1.2rem; }
 .feed-list li, #recommendations li { margin: .35rem 0; padding: .55rem .65rem; line-height: 1.45; border-radius: 7px; background: rgba(9, 27, 42, .25); }

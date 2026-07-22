@@ -86,7 +86,8 @@ copied from those projects.
 - Workers AI is optional. `AI_DAILY_CAP` defaults to a conservative 8,000 estimated-neuron proxy per UTC day. The default model is `@cf/openai/gpt-oss-120b`, with ordered fallbacks configured through `AI_FALLBACK_MODELS` (currently Llama 3.3 70B Fast, then Llama 3.2 3B). Per-model failures advance through the chain without changing the deterministic plan; budget exhaustion returns rules-only text.
 - The exact upgrade priorities and army suggestions are sourced from `research/strategy-meta.md` and carry confidence labels. Several lower-TH current rankings are marked unverified because source pages were inaccessible during research.
 - The analyzer labels provenance as `observed` (official payload), `calculated` (payload plus catalog), `estimated` (manual input), or `unavailable` (not exposed by the API). Buildings, walls, resources, builder availability, and active timers remain unavailable until entered manually.
-- Manual base data can also include ore balances, a four-hero lineup, and up to twelve-unit war/home army setups. These are user-entered planning inputs; ore, upgrade timers, and armies used in attacks are not exposed by the API.
+- Manual base data can also include ore balances, wall level/count, magic-item inventory, Clan Games activity, a builder backlog copied from the in-game upgrade list, a four-hero lineup, and up to twelve-unit war/home army setups. Builder backlog costs are matched against the runtime catalog only when the name and cost produce a unique target level; ambiguous or stale matches remain explicitly un-inferred. These are user-entered planning inputs; walls, magic-item inventory, Clan Games state, builder queues, ore, upgrade timers, and armies used in attacks are not exposed by the API.
+- Builder backlog inference also recognizes 90%, 85%, and 80% Gold Pass-discounted costs, preferring exact display-rounded matches and otherwise allowing a small tolerance. Discounted matches are labeled `inferred from discounted cost (Gold Pass boost)` and remain unset when multiple level/discount combinations match.
 - App authentication protects writes to watches, manual base state, and the
   completed-action checklist. It is not a Supercell login: passwords are stored
   only as salted PBKDF2-SHA256 hashes (120,000 iterations), and 30-day random
@@ -117,8 +118,10 @@ Manual planning endpoints include `GET /api/timers/:tag`, `POST`/`DELETE
 /api/equipment/:tag?goal=war`. Timers, rushed-base reports, ore-aware
 equipment breakpoints, hero lineups, pet pairings, and selected war/home
 armies are advisory inputs only. The public API does not expose defenses,
-resources, ore, upgrade timers, army compositions used in attacks, layouts, or
-replays; the dashboard labels those manual or unavailable values explicitly.
+walls, magic-item inventory, Clan Games state, resources, ore, upgrade timers,
+army compositions used in attacks, layouts, or replays; the dashboard labels
+those manual or unavailable values explicitly. Magic-item suggestions never
+perform or automate a game action.
 
 The optional strategist collector stores only self-collected public API
 snapshots and war events in the `DATA` R2 bucket. A compact version-1 JSON

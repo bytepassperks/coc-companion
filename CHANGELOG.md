@@ -9,6 +9,18 @@
   planning, hero lineup selection, and pet pairing advice. Added manual war/home
   army selectors; selected army research receives a deterministic ranking boost
   and is supplied as context to the AI review panel. All remain advisory-only.
+- Added manual wall level/count, magic-item inventory, and Clan Games activity
+  inputs. Ranked actions now provide deterministic why explanations and
+  advisory suggestions for books, hammers, potions, wall overflow loot, and
+  Clan Games rewards. No suggestion performs an in-game action.
+- Added a manual builder backlog editor for copied in-game upgrade queues.
+  Unique catalog cost matches infer target levels and resource types with
+  calculated provenance; ambiguous or stale costs remain honest and
+  un-inferred. Backlog actions are ranked by general builder/war impact and
+  remain advisory-only.
+- Builder backlog inference now recognizes 90%, 85%, and 80% Gold Pass
+  discounted display costs with ambiguity safeguards and explicit discounted
+  inference provenance.
 
 - Added the advisory-only CoC Strategist ML foundation: bounded public-data
   collection to R2, point-in-time attack events, validated JSON model serving

@@ -3,6 +3,7 @@ import { analyzeAccount } from "../src/analyzer";
 import { getNextBestActions } from "../src/nextBestAction";
 import type { GameCatalog, Player } from "../src/types";
 import fullCatalog from "../config/game-data.json";
+import { inferBuilderBacklog } from "../src/builderBacklog";
 
 const catalog: GameCatalog = {
   metadata: { source: "test", upstream: "test", accessed: "2026-07-21", game_version: "test" },
@@ -24,6 +25,37 @@ const player: Player = {
 };
 
 describe("next best action", () => {
+  it("infers unique backlog levels and leaves ambiguous costs honest", () => {
+    const fake = { ...catalog, buildings: [
+      { name: "Tower", village: "home", resource: "Gold", levels: [{ level: 2, upgrade_cost: 100 }] },
+      { name: "Tower", village: "home", resource: "Gold", levels: [{ level: 3, upgrade_cost: 200 }] },
+      { name: "Ambiguous", village: "home", resource: "Gold", levels: [{ level: 2, upgrade_cost: 100 }, { level: 3, upgrade_cost: 100 }] },
+    ] } as GameCatalog;
+    expect(inferBuilderBacklog([{ name: "Tower", count: 1, cost: 200 }], fake)[0].targetLevel).toBe(3);
+    expect(inferBuilderBacklog([{ name: "Ambiguous", count: 1, cost: 100 }], fake)[0].targetLevel).toBeUndefined();
+    const discounted = { ...catalog, buildings: [
+      { name: "Discounted Tower", village: "home", resource: "Gold", levels: [{ level: 7, upgrade_cost: 10000000 }] },
+    ] } as GameCatalog;
+    const discountedResult = inferBuilderBacklog([{ name: "Discounted Tower", count: 1, cost: 8000000 }], discounted)[0];
+    expect(discountedResult.targetLevel).toBe(7);
+    expect(discountedResult.provenance).toBe("inferred from discounted cost (Gold Pass boost)");
+    const ambiguousDiscount = { ...catalog, buildings: [
+      { name: "Discounted Tower", village: "home", resource: "Gold", levels: [{ level: 7, upgrade_cost: 10000000 }, { level: 8, upgrade_cost: 9411765 }] },
+    ] } as GameCatalog;
+    expect(inferBuilderBacklog([{ name: "Discounted Tower", count: 1, cost: 8000000 }], ambiguousDiscount)[0].targetLevel).toBeUndefined();
+  });
+
+  it("ranks impactful builder backlog items before lower-impact buildings", () => {
+    const analysis = analyzeAccount(player, catalog);
+    const actions = getNextBestActions(player, catalog, analysis, {
+      buildersFree: 1, builderBacklog: [
+        { name: "Gold Mine", count: 1, cost: 6400000, resource: "Gold" },
+        { name: "X-Bow", count: 1, cost: 8000000, resource: "Gold", targetLevel: 8 },
+      ], updatedAt: "",
+    });
+    expect(actions.findIndex((item) => item.subject === "X-Bow")).toBeLessThan(actions.findIndex((item) => item.subject === "Gold Mine"));
+    expect(actions.find((item) => item.subject === "X-Bow")?.why).toContain("8");
+  });
   it("penalizes hero downtime for war, boosts cheap farm actions, and gates builders", () => {
     const analysis = analyzeAccount(player, catalog);
     const war = getNextBestActions(player, catalog, analysis, { goal: "war", labBusy: false, buildersFree: 1, updatedAt: "" });
@@ -100,6 +132,18 @@ describe("next best action", () => {
     expect(cheap?.notes).toContain("Already in progress (timer).");
     expect(cheap?.why).toContain("lab work while all builders are busy");
     expect(actions.find((item) => item.notes.includes("Already in progress (timer)."))).toBeDefined();
+  });
+
+  it("suggests owned magic items on matching upgrades and adds Clan Games", () => {
+    const analysis = analyzeAccount(player, catalog);
+    const actions = getNextBestActions(player, catalog, analysis, {
+      goal: "war", magicItems: { bookOfHeroes: 1, researchPotion: 1 }, clanGamesActive: true, wallLevel: 15, wallCount: 120, updatedAt: "",
+    });
+    const hero = actions.find((item) => item.subject === "King");
+    expect(hero?.notes.some((note) => note.includes("Book of Heroes"))).toBe(true);
+    expect(hero?.why).toContain("Book of Heroes");
+    expect(actions.find((item) => item.action === "Complete Clan Games challenges")?.why).toContain("magic-item rewards");
+    expect(actions.find((item) => item.action === "Plan wall upgrades")?.why).toContain("120 walls");
   });
 
   it("caps unlock actions and includes the prerequisite building", () => {
