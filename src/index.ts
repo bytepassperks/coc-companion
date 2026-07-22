@@ -101,26 +101,36 @@ export default {
         if (image.byteLength < 1 || image.byteLength > 4 * 1024 * 1024) throw new ValidationError("Image must be between 1 byte and 4MB");
         if (!env.AI) return json({ error: "OCR unavailable: vision AI is not configured" }, cors, 503);
         const imageBase64 = encodeBase64(new Uint8Array(image));
-        const models = (env.OCR_MODELS || "@cf/meta/llama-4-scout-17b-16e-instruct,@cf/meta/llama-3.2-11b-vision-instruct").split(",").map((value) => value.trim()).filter(Boolean);
+        const models = (env.OCR_MODELS || "@cf/meta/llama-4-scout-17b-16e-instruct,@cf/meta/llama-3.2-11b-vision-instruct,@cf/llava-hf/llava-1.5-7b-hf").split(",").map((value) => value.trim()).filter(Boolean);
         let raw: unknown;
         let parseError: unknown;
+        const attempts: Array<{ model: string; error: string }> = [];
         const loaded = type === "upgrades" ? await loadCatalog(env.STATE) : undefined;
         for (const model of models) {
           try {
-            raw = await env.AI.run(model as never, { temperature: 0, max_tokens: 700, messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
+            raw = await env.AI.run(model as never, { temperature: 0, max_tokens: 900, messages: [{ role: "user", content: [{ type: "text", text: ocrPrompt(type as OcrType) }, { type: "image_url", image_url: { url: `data:${mime};base64,${imageBase64}` } }] }] } as never);
             if (!raw) continue;
             try {
               const response: Record<string, unknown> = { type, draft: parseOcrResponse(raw, type as OcrType, loaded?.catalog), reviewed: false };
-              if (debug) response.raw = truncateOcrDebug(raw);
+              if (debug) {
+                response.raw = truncateOcrDebug(raw);
+                response.attempts = attempts;
+              }
               return json(response, cors);
             } catch (error) {
               parseError = error;
+              attempts.push({ model, error: error instanceof Error ? error.message : "invalid model output" });
             }
-          } catch { /* try the next configured vision model */ }
+          } catch (error) {
+            attempts.push({ model, error: error instanceof Error ? error.message : "vision model failed" });
+          }
         }
         if (!raw) return json({ error: "OCR unavailable: no configured vision model could read this image" }, cors, 503);
         const response: Record<string, unknown> = { error: `OCR could not produce a safe draft: ${parseError instanceof Error ? parseError.message : "invalid model output"}` };
-        if (debug) response.raw = truncateOcrDebug(raw);
+        if (debug) {
+          response.raw = truncateOcrDebug(raw);
+          response.attempts = attempts;
+        }
         return json(response, cors, 422);
       }
       const doneMatch = url.pathname.match(/^\/api\/done\/([^/]+)$/);

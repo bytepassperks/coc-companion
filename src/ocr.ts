@@ -44,6 +44,14 @@ export function extractJsonBlocks(text: string) {
 
 const names = (value: unknown, max = 40) => typeof value === "string" && value.trim().length > 0 && value.trim().length <= max;
 const integer = (value: unknown, min = 0, max = 400) => typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+const numericInteger = (value: unknown, min = 0, max = 1000000) => {
+  if (integer(value, min, max)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value.trim())) {
+    const parsed = Number(value.trim());
+    if (Number.isInteger(parsed) && parsed >= min && parsed <= max) return parsed;
+  }
+  return undefined;
+};
 
 export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCatalog): OcrDraft {
   const envelope = raw && typeof raw === "object" && "response" in raw ? (raw as { response?: unknown }).response : undefined;
@@ -81,8 +89,8 @@ export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCata
     if (!Array.isArray(parsed) || parsed.length > 12) throw new Error("OCR builders must be an array of up to 12 entries");
     return { entries: parsed.map((item) => {
       const value = item as Record<string, unknown>;
-      if (!value || !names(value.label, 60) || !names(value.remaining, 30) || (value.kind !== undefined && !["builder", "lab", "pet", "hero", "other"].includes(String(value.kind)))) throw new Error("OCR returned an invalid builder entry");
-      return { label: (value.label as string).trim(), remaining: (value.remaining as string).trim(), kind: value.kind ?? "builder" };
+      if (!value || !names(value.label, 60) || !names(value.remaining, 30) || !/^\d+[dhms](?:\s+\d+[dhms]){0,3}$/i.test((value.remaining as string).trim()) || (value.kind !== undefined && !["builder", "lab", "pet", "hero", "other"].includes(String(value.kind)))) throw new Error("OCR returned an invalid builder entry");
+      return { label: (value.label as string).trim(), remaining: (value.remaining as string).trim(), kind: value.kind ?? "other" };
     }) };
   }
   if (type === "army") {
@@ -105,6 +113,7 @@ export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCata
   const oreNumber = (value: unknown) => {
     if (integer(value, 0, 1000000)) return value;
     if (typeof value === "string") {
+      if (/^\d+$/.test(value.trim())) return numericInteger(value, 0, 1000000);
       const match = value.trim().match(/^(\d+)\s*\/\s*\d+$/);
       if (match) return Number(match[1]);
     }
@@ -116,17 +125,25 @@ export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCata
   const glowy = oreNumber(value.glowy)!;
   const starry = oreNumber(value.starry)!;
   if (shiny === 12 && glowy === 34 && starry === 56) throw new Error("OCR repeated the prompt example instead of reading the image");
-  return { shiny, glowy, starry, ...(value.magicItems && typeof value.magicItems === "object" ? { magicItems: value.magicItems } : {}) };
+  const magicItems = value.magicItems && typeof value.magicItems === "object"
+    ? Object.fromEntries(Object.entries(value.magicItems).flatMap(([key, count]) => {
+      const parsed = numericInteger(count, 0, 99);
+      return parsed === undefined ? [] : [[key, parsed]];
+    }))
+    : undefined;
+  return { shiny, glowy, starry, ...(magicItems ? { magicItems } : {}) };
 }
 
 export function ocrPrompt(type: OcrType) {
   const schemas: Record<OcrType, string> = {
     upgrades: '[{"name":"Example Tower","count":2,"cost":123456,"resource":"Gold"}]',
-    builders: '[{"label":"Example Builder","remaining":"1h 2m","kind":"builder"}]',
+    builders: '[{"label":"Example Builder -> level 2","remaining":"1m 2s","kind":"other"}]',
     army: '[{"name":"Example Troop","count":3,"level":4}]',
     hero: '[{"hero":"Example Hero","equipment":["Example Equipment"],"pet":"Example Pet"}]',
     ores: '{"shiny":"12/345","glowy":"34/456","starry":"56/789","magicItems":{"bookOfHeroes":2}}',
   };
-  const oreHint = type === "ores" ? "For ores, read the three pill-shaped counters at the bottom of the Hero Equipment screen: blue Shiny like 2253/45000, purple Glowy like 273/4500, and yellow Starry like 369/900. Report the number before each slash, not equipment level badges such as 9/17/24." : "";
-  return `Read this mobile Clash of Clans game screenshot and list every visible row. Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact shape (the values below are synthetic placeholders; never copy them): ${schemas[type]}. Read values from the image, do not use the placeholders. ${oreHint} If a value is unreadable, omit that entry rather than guessing.`;
+  const oreHint = type === "ores" ? "For ores, read the three pill-shaped counters at the bottom of the Hero Equipment screen: blue Shiny like 2253/45000, purple Glowy like 273/4500, and yellow Starry like 369/900. Report the number before each slash, not equipment level badges such as 9/17/24. Numeric strings are acceptable." : "";
+  const builderHint = type === "builders" ? "Look for the Upgrade in progress popup. Return every visible row, using labels like Earthquake Spell -> level 6 and remaining like 29m 3s or 1d 42m 3s. Infer kind: lab for troop/spell research, hero for hero upgrades, pet for pet upgrades, builder for buildings, otherwise other." : "";
+  const armyHint = type === "army" ? "List EVERY troop, spell, and siege machine visible, including clan castle sections; do not stop after the first few entries." : "";
+  return `Read this mobile Clash of Clans game screenshot. ${builderHint} ${armyHint} Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact shape (the values below are synthetic placeholders; never copy them): ${schemas[type]}. Read values from the image, do not use the placeholders. ${oreHint} If a value is unreadable, omit that entry rather than guessing.`;
 }

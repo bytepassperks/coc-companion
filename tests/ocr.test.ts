@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractJsonBlock, extractJsonBlocks, parseOcrResponse } from "../src/ocr";
+import { extractJsonBlock, extractJsonBlocks, ocrPrompt, parseOcrResponse } from "../src/ocr";
 import type { GameCatalog } from "../src/types";
 
 const catalog = {
@@ -20,6 +20,13 @@ describe("screenshot OCR drafts", () => {
 
   it("takes the numerator from ore x/y counters", () => {
     expect(parseOcrResponse('{"shiny":"2253/45000","glowy":"273/4500","starry":"369/900"}', "ores")).toMatchObject({ shiny: 2253, glowy: 273, starry: 369 });
+    expect(parseOcrResponse('{"shiny":"2253","glowy":"273","starry":"369","magicItems":{"bookOfHeroes":"1"}}', "ores")).toMatchObject({ shiny: 2253, glowy: 273, starry: 369, magicItems: { bookOfHeroes: 1 } });
+  });
+
+  it("gives literal builders and army coverage instructions", () => {
+    expect(ocrPrompt("builders")).toContain("Upgrade in progress");
+    expect(ocrPrompt("builders")).toContain("Earthquake Spell -> level 6");
+    expect(ocrPrompt("army")).toContain("EVERY troop, spell, and siege machine");
   });
 
   it("unwraps common model response wrappers and rejects copied examples", () => {
