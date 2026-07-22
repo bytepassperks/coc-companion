@@ -7,7 +7,12 @@ export type OcrType = typeof OCR_TYPES[number];
 export type OcrDraft = Record<string, unknown>;
 
 export function extractJsonBlock(text: string) {
+  return extractJsonBlocks(text)[0];
+}
+
+export function extractJsonBlocks(text: string) {
   const unfenced = text.replace(/```(?:json)?/gi, "").replace(/```/g, "");
+  const blocks: string[] = [];
   for (let start = 0; start < unfenced.length; start += 1) {
     if (unfenced[start] !== "[" && unfenced[start] !== "{") continue;
     const stack: string[] = [];
@@ -26,26 +31,39 @@ export function extractJsonBlock(text: string) {
       else if (character === "]" || character === "}") {
         const opener = stack.pop();
         if ((character === "]" && opener !== "[") || (character === "}" && opener !== "{")) break;
-        if (!stack.length) return unfenced.slice(start, index + 1);
+        if (!stack.length) {
+          blocks.push(unfenced.slice(start, index + 1));
+          start = index;
+          break;
+        }
       }
     }
   }
-  return undefined;
+  return blocks;
 }
 
 const names = (value: unknown, max = 40) => typeof value === "string" && value.trim().length > 0 && value.trim().length <= max;
 const integer = (value: unknown, min = 0, max = 400) => typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
 
 export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCatalog): OcrDraft {
+  const envelope = raw && typeof raw === "object" && "response" in raw ? (raw as { response?: unknown }).response : undefined;
+  let parsed: unknown = envelope && typeof envelope !== "string" ? envelope : undefined;
+  if (envelope && typeof envelope !== "string") raw = undefined;
   const text = typeof raw === "string" ? raw : extractAiText(raw);
-  if (!text) throw new Error("OCR returned no structured data");
-  const candidates = [extractJsonBlock(text), text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim()].filter((candidate): candidate is string => Boolean(candidate));
-  let parsed: unknown;
-  for (const candidate of candidates) {
-    try { if (candidate.trim()) { parsed = JSON.parse(candidate); break; } } catch { /* untrusted model output */ }
+  if (parsed === undefined) {
+    if (!text) throw new Error("OCR returned no structured data");
+    const blocks = extractJsonBlocks(text);
+    const candidates = blocks.length > 1 && blocks.every((block) => block.trim().startsWith("{"))
+      ? [`[${blocks.join(",")}]`, ...blocks]
+      : [...blocks, text.replace(/```(?:json)?/gi, "").replace(/```/g, "").trim()];
+    for (const candidate of candidates) {
+      try { if (candidate.trim()) { parsed = JSON.parse(candidate); break; } } catch { /* untrusted model output */ }
+    }
   }
   if (parsed === undefined) throw new Error("OCR returned invalid JSON");
   if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const response = (parsed as Record<string, unknown>).response;
+    if (response !== undefined) parsed = response;
     const properties = Object.values(parsed as Record<string, unknown>);
     if (properties.length === 1 && Array.isArray(properties[0])) parsed = properties[0];
     else if (type === "ores" && properties.length === 1 && properties[0] && typeof properties[0] === "object") parsed = properties[0];
@@ -84,10 +102,21 @@ export function parseOcrResponse(raw: unknown, type: OcrType, catalog?: GameCata
       return { hero: (value.hero as string).trim(), equipment: (value.equipment as string[]).map((name) => name.trim()), ...(value.pet ? { pet: (value.pet as string).trim() } : {}) };
     }) };
   }
-  if (!parsed || typeof parsed !== "object" || !integer((parsed as Record<string, unknown>).shiny, 0, 1000000) || !integer((parsed as Record<string, unknown>).glowy, 0, 1000000) || !integer((parsed as Record<string, unknown>).starry, 0, 1000000)) throw new Error("OCR returned invalid ore balances");
+  const oreNumber = (value: unknown) => {
+    if (integer(value, 0, 1000000)) return value;
+    if (typeof value === "string") {
+      const match = value.trim().match(/^(\d+)\s*\/\s*\d+$/);
+      if (match) return Number(match[1]);
+    }
+    return undefined;
+  };
+  if (!parsed || typeof parsed !== "object" || oreNumber((parsed as Record<string, unknown>).shiny) === undefined || oreNumber((parsed as Record<string, unknown>).glowy) === undefined || oreNumber((parsed as Record<string, unknown>).starry) === undefined) throw new Error("OCR returned invalid ore balances");
   const value = parsed as Record<string, unknown>;
-  if (value.shiny === 12 && value.glowy === 34 && value.starry === 56) throw new Error("OCR repeated the prompt example instead of reading the image");
-  return { shiny: value.shiny, glowy: value.glowy, starry: value.starry, ...(value.magicItems && typeof value.magicItems === "object" ? { magicItems: value.magicItems } : {}) };
+  const shiny = oreNumber(value.shiny)!;
+  const glowy = oreNumber(value.glowy)!;
+  const starry = oreNumber(value.starry)!;
+  if (shiny === 12 && glowy === 34 && starry === 56) throw new Error("OCR repeated the prompt example instead of reading the image");
+  return { shiny, glowy, starry, ...(value.magicItems && typeof value.magicItems === "object" ? { magicItems: value.magicItems } : {}) };
 }
 
 export function ocrPrompt(type: OcrType) {
@@ -96,7 +125,8 @@ export function ocrPrompt(type: OcrType) {
     builders: '[{"label":"Example Builder","remaining":"1h 2m","kind":"builder"}]',
     army: '[{"name":"Example Troop","count":3,"level":4}]',
     hero: '[{"hero":"Example Hero","equipment":["Example Equipment"],"pet":"Example Pet"}]',
-    ores: '{"shiny":12,"glowy":34,"starry":56,"magicItems":{"bookOfHeroes":2}}',
+    ores: '{"shiny":"12/345","glowy":"34/456","starry":"56/789","magicItems":{"bookOfHeroes":2}}',
   };
-  return `Read this mobile Clash of Clans game screenshot and list every visible row. Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact shape (the values below are synthetic placeholders; never copy them): ${schemas[type]}. Read values from the image, do not use the placeholders. If a value is unreadable, omit that entry rather than guessing.`;
+  const oreHint = type === "ores" ? "For ores, read the three pill-shaped counters at the bottom of the Hero Equipment screen: blue Shiny like 2253/45000, purple Glowy like 273/4500, and yellow Starry like 369/900. Report the number before each slash, not equipment level badges such as 9/17/24." : "";
+  return `Read this mobile Clash of Clans game screenshot and list every visible row. Respond with ONLY minified JSON, with no markdown, prose, labels, or trailing commentary. Use this exact shape (the values below are synthetic placeholders; never copy them): ${schemas[type]}. Read values from the image, do not use the placeholders. ${oreHint} If a value is unreadable, omit that entry rather than guessing.`;
 }

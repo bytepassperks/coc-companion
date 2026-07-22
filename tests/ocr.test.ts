@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractJsonBlock, parseOcrResponse } from "../src/ocr";
+import { extractJsonBlock, extractJsonBlocks, parseOcrResponse } from "../src/ocr";
 import type { GameCatalog } from "../src/types";
 
 const catalog = {
@@ -10,6 +10,16 @@ describe("screenshot OCR drafts", () => {
   it("recovers balanced JSON from fences and trailing prose", () => {
     expect(extractJsonBlock('Here you go:\n```json\n[{"name":"Dragon","count":1,"level":7}]\n```\nDone.')).toBe('[{"name":"Dragon","count":1,"level":7}]');
     expect(parseOcrResponse('Sure: [{"name":"Dragon","count":1,"level":7}] trailing commentary', "army").entries).toHaveLength(1);
+  });
+
+  it("collects adjacent top-level objects and reads response envelopes", () => {
+    expect(extractJsonBlocks('{"name":"A","count":1,"cost":2}\n{"name":"B","count":2,"cost":3}')).toHaveLength(2);
+    expect(parseOcrResponse('{"name":"A","count":1,"cost":2}\n{"name":"B","count":2,"cost":3}', "upgrades").entries).toHaveLength(2);
+    expect(parseOcrResponse({ response: [{ name: "Dragon", count: 1, level: 7 }], tool_calls: [], usage: {} }, "army").entries).toHaveLength(1);
+  });
+
+  it("takes the numerator from ore x/y counters", () => {
+    expect(parseOcrResponse('{"shiny":"2253/45000","glowy":"273/4500","starry":"369/900"}', "ores")).toMatchObject({ shiny: 2253, glowy: 273, starry: 369 });
   });
 
   it("unwraps common model response wrappers and rejects copied examples", () => {
