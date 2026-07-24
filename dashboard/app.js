@@ -291,7 +291,7 @@ function renderFeed(notifications) {
 function renderCodeRadar(codes) {
   const target = document.querySelector("#todayCodes");
   if (!target) return;
-  target.innerHTML = codes?.length ? codes.slice(0, 8).map(code => `<div class="code-radar-row"><strong>${escapeHtml(code.code)}</strong><span class="code-tier ${escapeHtml(code.tier)}">${escapeHtml(code.tier)}</span><small>${escapeHtml(code.note || "Reported; validity can only be confirmed at the Store.")}</small><a href="https://store.supercell.com/clashofclans" target="_blank" rel="noopener">Redeem at Store</a></div>`).join("") : "<p class=\"muted\">No reported codes yet.</p>";
+  target.innerHTML = codes?.length ? codes.slice(0, 8).map(code => `<div class="code-radar-row ${code.stale ? "stale" : ""}"><strong>${escapeHtml(code.code)}</strong><span class="code-tier ${escapeHtml(code.tier)}">${escapeHtml(code.tier)}</span><small>${escapeHtml(code.note || "Reported; validity can only be confirmed at the Store.")}</small><a href="https://store.supercell.com/clashofclans" target="_blank" rel="noopener">Redeem at Store</a></div>`).join("") : "<p class=\"muted\">No reported codes yet.</p>";
 }
 
 function renderClanWar(war, clan, capital, prediction) {

@@ -210,6 +210,7 @@ th, td { white-space: normal; overflow-wrap: anywhere; }
 .code-radar-row a { color: #f0c96b; font-weight: 700; }
 .code-tier { border-radius: 999px; padding: .15rem .45rem; font-size: .75rem; text-transform: capitalize; }
 .code-tier.official { background: #456b52; }.code-tier.corroborated { background: #695a31; }.code-tier.reported { background: #754b37; }
+.code-radar-row.stale { opacity: .58; }.code-radar-row.stale strong { text-decoration: line-through; }
 @media (max-width: 520px) { .ocr-row { grid-template-columns: 1fr 1fr; } .ocr-row input:first-child { grid-column: 1 / -1; } }
 .settings-grid button { width: fit-content; max-width: 100%; }
 #today .dashboard-grid:last-child { grid-template-columns: 1fr; }

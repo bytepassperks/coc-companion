@@ -8,6 +8,7 @@ export interface RadarCode {
   firstSeen: string;
   alerted?: boolean;
   preexisting?: boolean;
+  stale?: boolean;
   note?: string;
 }
 export interface RadarSourceStatus {
@@ -66,6 +67,11 @@ export function mergeRadarCode(previous: RadarCode | undefined, code: string, so
   const record: RadarCode = previous
     ? { ...previous, sources: [...new Set([...previous.sources, source])] }
     : { code, tier: "reported", sources: [source], firstSeen: now, alerted: false };
+  if (record.stale && (source === "official-news" || source === "store")) {
+    record.stale = false;
+    record.note = undefined;
+    record.alerted = false;
+  }
   record.tier = codeTier(record);
   return { record, isNew: !previous };
 }
@@ -102,6 +108,27 @@ export async function seedRadarCodes(state: KVNamespace): Promise<void> {
 export async function runCodeRadar(state: KVNamespace, watchedTags: string[], telegramToken?: string, telegramChatId?: string): Promise<void> {
   await seedRadarCodes(state);
   const seeded = new Set(["FIREANDICE!!", "WHENHOGSFLY!", "TRUSTYTURRET", "ROYALEAFFAIR", "REINABARRIGA"]);
+  const migrationKey = "codes:migration:user-verified-jul-2026";
+  if (!(await state.get(migrationKey))) {
+    const userVerified = ["ALEXCALIBUR", "ONEMAGICGIFT", "SHARETHEGOLD", "BARBARIANCWL", ...seeded];
+    const now = new Date().toISOString();
+    const index = await state.get<string[]>("codes:index", "json") ?? [];
+    for (const code of userVerified) {
+      const previous = await state.get<RadarCode>(`codes:record:${code}`, "json");
+      await state.put(`codes:record:${code}`, JSON.stringify({
+        code,
+        tier: previous?.tier ?? "reported",
+        sources: previous?.sources ?? ["user-verification"],
+        firstSeen: previous?.firstSeen ?? now,
+        alerted: true,
+        preexisting: previous?.preexisting ?? true,
+        stale: true,
+        note: "User-verified not working (Jul 2026)",
+      } satisfies RadarCode));
+    }
+    await state.put("codes:index", JSON.stringify([...new Set([...index, ...userVerified])]));
+    await state.put(migrationKey, "1");
+  }
   const initialIndex = await state.get<string[]>("codes:index", "json") ?? [];
   const cleanIndex: string[] = [];
   for (const code of initialIndex) {
@@ -118,10 +145,16 @@ export async function runCodeRadar(state: KVNamespace, watchedTags: string[], te
     const merged = mergeRadarCode(previous, code, result.status.source);
     await state.put(`codes:record:${code}`, JSON.stringify(merged.record));
     known.add(code);
-    if (!merged.isNew || merged.record.alerted) continue;
+    if (merged.record.stale) continue;
+    if (!merged.isNew && merged.record.alerted) continue;
     merged.record.alerted = true;
     await state.put(`codes:record:${code}`, JSON.stringify(merged.record));
-    const message = `New CoC code found: ${code} (${merged.record.tier}). Validity can only be confirmed by redeeming at store.supercell.com.`;
+    const confidence = merged.record.tier === "official"
+      ? "Officially published by Supercell; validity can still change."
+      : merged.record.tier === "corroborated"
+        ? "Found on multiple community sources; validity can still change."
+        : "Unverified — found on a community roundup, often stale.";
+    const message = `CoC code found: ${code} (${merged.record.tier}). ${confidence}`;
     for (const tag of watchedTags) {
       const key = `feed:${tag.replace(/^#/, "")}`;
       const feed = await state.get<Array<Record<string, unknown>>>(key, "json") ?? [];

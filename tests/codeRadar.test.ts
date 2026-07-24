@@ -32,4 +32,15 @@ describe("code radar", () => {
     expect(second.record.sources).toEqual(["u7buy", "buffbuff"]);
     expect(second.record.tier).toBe("corroborated");
   });
+
+  it("keeps user-verified stale codes quiet until an official source reactivates them", () => {
+    const stale = { code: "ALEXCALIBUR", tier: "reported" as const, sources: ["u7buy"], firstSeen: "2026-07-01T00:00:00.000Z", alerted: true, stale: true, note: "User-verified not working (Jul 2026)" };
+    const community = mergeRadarCode(stale, stale.code, "buffbuff");
+    expect(community.record.stale).toBe(true);
+    expect(community.record.alerted).toBe(true);
+    const official = mergeRadarCode(stale, stale.code, "official-news");
+    expect(official.record.stale).toBe(false);
+    expect(official.record.alerted).toBe(false);
+    expect(official.record.note).toBeUndefined();
+  });
 });
