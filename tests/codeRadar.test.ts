@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codeTier, extractCandidateCodes, isLikelyCode, mergeRadarCode, scanDiscordMessages } from "../src/codeRadar";
+import { codeTier, extractCandidateCodes, formatTelegramAlert, isLikelyCode, mergeRadarCode, scanDiscordMessages, telegramAlertEligible } from "../src/codeRadar";
 
 describe("code radar", () => {
   it("extracts contextual codes and rejects ordinary uppercase words", () => {
@@ -58,5 +58,20 @@ describe("code radar", () => {
     ]);
     expect(codeTier({ sources: ["discord-official:123"] })).toBe("official");
     expect(codeTier({ sources: ["discord:123"] })).toBe("reported");
+  });
+
+  it("gates Telegram alerts by tier and sends once after a tier upgrade", () => {
+    const reported = { code: "ALEXCALIBUR", tier: "reported" as const, sources: ["u7buy"], firstSeen: "2026-07-21T00:00:00.000Z" };
+    expect(telegramAlertEligible(undefined, reported)).toBe(false);
+    const corroborated = { ...reported, tier: "corroborated" as const, sources: ["u7buy", "buffbuff"] };
+    expect(telegramAlertEligible(reported, corroborated)).toBe(true);
+    expect(telegramAlertEligible(corroborated, { ...corroborated, telegramAlerted: true })).toBe(false);
+  });
+
+  it("escapes Telegram HTML and renders human-readable sources", () => {
+    const message = formatTelegramAlert({ code: "ALEX<TEST>", tier: "official", sources: ["official-news", "discord-official:1"], firstSeen: "2026-07-21T00:00:00Z" });
+    expect(message).toContain("<code>ALEX&lt;TEST&gt;</code>");
+    expect(message).toContain("Supercell news, Official CoC Discord announcement");
+    expect(message).toContain("✅ Official");
   });
 });

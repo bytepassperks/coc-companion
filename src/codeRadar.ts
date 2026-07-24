@@ -7,6 +7,7 @@ export interface RadarCode {
   sources: string[];
   firstSeen: string;
   alerted?: boolean;
+  telegramAlerted?: boolean;
   preexisting?: boolean;
   stale?: boolean;
   note?: string;
@@ -72,6 +73,38 @@ export function extractCandidateCodes(html: string, sourceUrl: string): string[]
 export function codeTier(record: Pick<RadarCode, "sources">): CodeTier {
   if (record.sources.some((source) => source.startsWith("official-news") || source.startsWith("store") || source.startsWith("discord-official"))) return "official";
   return record.sources.length >= 2 ? "corroborated" : "reported";
+}
+
+export function telegramAlertEligible(previous: RadarCode | undefined, current: RadarCode): boolean {
+  return current.tier !== "reported" && !current.stale && !current.telegramAlerted &&
+    (!previous || previous.tier !== current.tier || !previous.telegramAlerted);
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+export function radarSourceName(source: string): string {
+  if (source.startsWith("discord-official")) return "Official CoC Discord announcement";
+  if (source.startsWith("discord:")) return "Discord";
+  return {
+    "official-news": "Supercell news",
+    store: "Supercell Store",
+    u7buy: "U7Buy",
+    buffbuff: "BuffBuff",
+    ldplayer: "LDPlayer",
+    "pre-radar-roundup": "Pre-radar roundup",
+    "user-verification": "User verification",
+  }[source] ?? source;
+}
+
+export function formatTelegramAlert(record: RadarCode): string {
+  const tier = record.tier === "official" ? "✅ Official" : "🔶 Corroborated";
+  const caveat = record.tier === "official"
+    ? "Published by Supercell; validity can still change."
+    : "Found on multiple community sources; validity can still change.";
+  const sources = [...new Set(record.sources.map(radarSourceName))].join(", ");
+  return `🎁 <b>New Clash of Clans code</b>\n\n<code>${escapeHtml(record.code)}</code>  (tap to copy)\n\n🏷 Tier: ${tier}\n📡 Source: ${escapeHtml(sources)}\n🕐 First seen: ${escapeHtml(record.firstSeen)}\n\n${escapeHtml(caveat)}`;
 }
 
 export function scanDiscordMessages(messages: DiscordMessage[], channelId: string): Array<{ code: string; source: string }> {
@@ -204,9 +237,9 @@ export async function runCodeRadar(state: KVNamespace, watchedTags: string[], te
     await state.put(`codes:record:${code}`, JSON.stringify(merged.record));
     known.add(code);
     if (merged.record.stale) continue;
-    if (!merged.isNew && merged.record.alerted) continue;
+    const tierUpgraded = Boolean(previous && previous.tier !== merged.record.tier);
+    if (!merged.isNew && merged.record.alerted && !tierUpgraded) continue;
     merged.record.alerted = true;
-    await state.put(`codes:record:${code}`, JSON.stringify(merged.record));
     const confidence = merged.record.tier === "official"
       ? "Officially published by Supercell; validity can still change."
       : merged.record.tier === "corroborated"
@@ -219,10 +252,26 @@ export async function runCodeRadar(state: KVNamespace, watchedTags: string[], te
       await state.put(key, JSON.stringify([{ id: `code:${code}`, type: "code_detected", createdAt: merged.record.firstSeen, message, data: { code, tier: merged.record.tier, sources: merged.record.sources } }, ...feed].slice(0, 50)));
     }
     if (telegramToken && telegramChatId) {
+      const shouldSend = telegramAlertEligible(previous, merged.record);
+      if (!shouldSend) {
+        await state.put(`codes:record:${code}`, JSON.stringify(merged.record));
+        continue;
+      }
       try {
-        await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: telegramChatId, text: `${message}\nRedeem: https://store.supercell.com/clashofclans` }) });
+        const response = await fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            chat_id: telegramChatId,
+            text: formatTelegramAlert(merged.record),
+            parse_mode: "HTML",
+            reply_markup: { inline_keyboard: [[{ text: "Redeem at Supercell Store", url: "https://store.supercell.com/clashofclans" }]] },
+          }),
+        });
+        if (response.ok) merged.record.telegramAlerted = true;
       } catch { /* alerts must never fail the radar */ }
     }
+    await state.put(`codes:record:${code}`, JSON.stringify(merged.record));
   }
   await state.put("codes:index", JSON.stringify([...known]));
 }
