@@ -205,6 +205,11 @@ th, td { white-space: normal; overflow-wrap: anywhere; }
 .ocr-unmatched { padding: .35rem; border: 2px solid #d06b4d; border-radius: 7px; background: rgba(117, 75, 55, .35); }
 .ocr-unmatched span { color: #ffd0a8; font-size: .8rem; font-weight: 800; }
 .ocr-provenance { color: #b9e6bf; font-size: .78rem; font-weight: 700; white-space: normal; }
+.code-radar-row { display: grid; grid-template-columns: auto auto; gap: .2rem .6rem; padding: .55rem 0; border-bottom: 1px solid rgba(255,255,255,.12); }
+.code-radar-row small { grid-column: 1 / -1; color: #d8c8a8; }
+.code-radar-row a { color: #f0c96b; font-weight: 700; }
+.code-tier { border-radius: 999px; padding: .15rem .45rem; font-size: .75rem; text-transform: capitalize; }
+.code-tier.official { background: #456b52; }.code-tier.corroborated { background: #695a31; }.code-tier.reported { background: #754b37; }
 @media (max-width: 520px) { .ocr-row { grid-template-columns: 1fr 1fr; } .ocr-row input:first-child { grid-column: 1 / -1; } }
 .settings-grid button { width: fit-content; max-width: 100%; }
 #today .dashboard-grid:last-child { grid-template-columns: 1fr; }

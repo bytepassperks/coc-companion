@@ -22,6 +22,7 @@ import { activeTimers, expireTimers, processTimers, timerId, validateTimerInput 
 import { calculateRushScore } from "./rushScore";
 import { adviseEquipment } from "./equipmentAdvisor";
 import { inferBuilderBacklog } from "./builderBacklog";
+import { listRadarCodes, runCodeRadar } from "./codeRadar";
 
 class ValidationError extends Error {}
 
@@ -32,6 +33,7 @@ export default {
     try {
       if (request.method === "OPTIONS") return new Response(null, { headers: cors });
       if (url.pathname === "/api/status") return json({ ok: true, service: "coc-companion", readOnly: true }, cors);
+      if (url.pathname === "/api/codes" && request.method === "GET") return json(await listRadarCodes(env.STATE), cors);
       if (url.pathname === "/api/auth/register" && request.method === "POST") {
         const body = await parseJson(request) as { email?: string; password?: string };
         validateCredentials(body?.email, body?.password);
@@ -476,6 +478,7 @@ export default {
       const client = new CocClient({ apiKey: env.COC_API_KEY, baseUrl: env.COC_API_BASE_URL });
       await collectWatched(client, env.DATA, env.STATE, watchedTags, snapshots);
     }
+    await runCodeRadar(env.STATE, watchedTags, env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID);
   },
 };
 

@@ -227,7 +227,7 @@ async function load() {
     if (sessionToken) await post(`/api/watch/${encodeURIComponent(tag)}`, {}, true);
     const player = await get(`/api/player/${encodeURIComponent(tag)}`);
     const clanTag = player.clan?.tag;
-    const [recs, notifications, accountPlan, savedBase, war, clan, capital, prediction, benchmark, timers, rush] = await Promise.all([
+    const [recs, notifications, accountPlan, savedBase, war, clan, capital, prediction, benchmark, timers, rush, codes] = await Promise.all([
       get(`/api/recommendations/${encodeURIComponent(tag)}`),
       get(`/api/feed/${encodeURIComponent(tag)}`),
       get(`/api/plan/${encodeURIComponent(tag)}`),
@@ -238,7 +238,8 @@ async function load() {
       get(`/api/predict/war/${encodeURIComponent(tag)}`).catch(() => null),
       get(`/api/benchmark/${encodeURIComponent(tag)}`).catch(() => null),
       get(`/api/timers/${encodeURIComponent(tag)}`).catch(() => []),
-      get(`/api/rush/${encodeURIComponent(tag)}`).catch(() => null)
+      get(`/api/rush/${encodeURIComponent(tag)}`).catch(() => null),
+      get("/api/codes").catch(() => [])
     ]);
     currentPlayer = player;
     if (savedBase) writeBase(savedBase);
@@ -258,6 +259,7 @@ async function load() {
     renderTimers(timers);
     renderRush(rush);
     renderFeed(notifications);
+    renderCodeRadar(codes);
     document.querySelector("#recommendations").innerHTML = recs.length ? recs.map(item => `<li><strong>${escapeHtml(humanizeSubject(item.subject))}${humanizeSubject(item.subject).toLowerCase() === humanizeCategory(item.category).toLowerCase() ? "" : ` <span class="recommendation-category">— ${escapeHtml(humanizeCategory(item.category))}</span>`}</strong><small>${escapeHtml(item.reason)}</small></li>`).join("") : "<li>No configured recommendations.</li>";
     document.querySelector("#goal").value = savedBase?.goal || document.querySelector("#goal").value;
     showToast("Account loaded.");
@@ -284,6 +286,12 @@ function renderIdentity(player, war) {
 function renderFeed(notifications) {
   const html = notifications.length ? notifications.slice(0, 8).map(item => `<li><strong>${escapeHtml(humanizeSlug(item.type))}</strong><small>${escapeHtml(item.message)}</small></li>`).join("") : "<li class=\"muted\">No notifications yet.</li>";
   document.querySelector("#todayFeed").innerHTML = html;
+}
+
+function renderCodeRadar(codes) {
+  const target = document.querySelector("#todayCodes");
+  if (!target) return;
+  target.innerHTML = codes?.length ? codes.slice(0, 8).map(code => `<div class="code-radar-row"><strong>${escapeHtml(code.code)}</strong><span class="code-tier ${escapeHtml(code.tier)}">${escapeHtml(code.tier)}</span><small>${escapeHtml(code.note || "Reported; validity can only be confirmed at the Store.")}</small><a href="https://store.supercell.com/clashofclans" target="_blank" rel="noopener">Redeem at Store</a></div>`).join("") : "<p class=\"muted\">No reported codes yet.</p>";
 }
 
 function renderClanWar(war, clan, capital, prediction) {

@@ -11,4 +11,6 @@ export interface Env {
   DATA: R2Bucket;
   MODELS: R2Bucket;
   OCR_MODELS?: string;
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHAT_ID?: string;
 }
