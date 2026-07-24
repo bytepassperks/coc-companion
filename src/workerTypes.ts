@@ -13,4 +13,6 @@ export interface Env {
   OCR_MODELS?: string;
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_CHAT_ID?: string;
+  DISCORD_BOT_TOKEN?: string;
+  DISCORD_CHANNEL_IDS?: string;
 }

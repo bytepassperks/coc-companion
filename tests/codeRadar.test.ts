@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { codeTier, extractCandidateCodes, isLikelyCode, mergeRadarCode } from "../src/codeRadar";
+import { codeTier, extractCandidateCodes, isLikelyCode, mergeRadarCode, scanDiscordMessages } from "../src/codeRadar";
 
 describe("code radar", () => {
   it("extracts contextual codes and rejects ordinary uppercase words", () => {
@@ -42,5 +42,21 @@ describe("code radar", () => {
     expect(official.record.stale).toBe(false);
     expect(official.record.alerted).toBe(false);
     expect(official.record.note).toBeUndefined();
+  });
+
+  it("scans Discord content and embeds, and assigns crosspost tiers", () => {
+    const found = scanDiscordMessages([
+      { id: "1", type: 0, flags: 2, webhook_id: "w", message_reference: { guild_id: "official" }, content: "Redeem code ALEXCALIBUR for a reward." },
+      { id: "2", type: 0, content: "Store code ONEMAGICGIFT", embeds: [{ title: "Reward", description: "Claim SHARETHEGOLD" }] },
+      { id: "3", type: 7, content: "Redeem BARBARIANCWL" },
+      { id: "4", type: 12, content: "Redeem BARBARIANCWL" },
+    ], "123");
+    expect(found).toEqual([
+      { code: "ALEXCALIBUR", source: "discord-official:123" },
+      { code: "ONEMAGICGIFT", source: "discord:123" },
+      { code: "SHARETHEGOLD", source: "discord:123" },
+    ]);
+    expect(codeTier({ sources: ["discord-official:123"] })).toBe("official");
+    expect(codeTier({ sources: ["discord:123"] })).toBe("reported");
   });
 });

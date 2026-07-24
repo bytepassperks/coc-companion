@@ -20,6 +20,17 @@ export interface RadarSourceStatus {
   error?: string;
   candidates: number;
 }
+type RadarResult = { status: RadarSourceStatus; codes: Array<string | { code: string; source: string }> };
+interface DiscordMessage {
+  id: string;
+  type?: number;
+  content?: string;
+  flags?: number;
+  webhook_id?: string;
+  author?: { bot?: boolean };
+  message_reference?: { guild_id?: string };
+  embeds?: Array<{ title?: string; description?: string }>;
+}
 
 export const CODE_SOURCES = [
   { id: "official-news", url: "https://supercell.com/en/games/clashofclans/blog/", official: true },
@@ -59,8 +70,21 @@ export function extractCandidateCodes(html: string, sourceUrl: string): string[]
 }
 
 export function codeTier(record: Pick<RadarCode, "sources">): CodeTier {
-  if (record.sources.some((source) => source.startsWith("official-news") || source.startsWith("store"))) return "official";
+  if (record.sources.some((source) => source.startsWith("official-news") || source.startsWith("store") || source.startsWith("discord-official"))) return "official";
   return record.sources.length >= 2 ? "corroborated" : "reported";
+}
+
+export function scanDiscordMessages(messages: DiscordMessage[], channelId: string): Array<{ code: string; source: string }> {
+  const found: Array<{ code: string; source: string }> = [];
+  for (const message of messages) {
+    if (message.type !== undefined && message.type !== 0 && message.type !== 19) continue;
+    const text = [message.content ?? "", ...(message.embeds ?? []).flatMap((embed) => [embed.title ?? "", embed.description ?? ""])].filter(Boolean).join("\n");
+    if (!text) continue;
+    const official = Boolean((message.flags ?? 0) & 2) && Boolean(message.message_reference?.guild_id || message.webhook_id || message.author?.bot);
+    const source = official ? `discord-official:${channelId}` : `discord:${channelId}`;
+    for (const code of extractCandidateCodes(text, `https://discord.com/channels/${channelId}`)) found.push({ code, source });
+  }
+  return found;
 }
 
 export function mergeRadarCode(previous: RadarCode | undefined, code: string, source: string, now = new Date().toISOString()): { record: RadarCode; isNew: boolean } {
@@ -76,7 +100,7 @@ export function mergeRadarCode(previous: RadarCode | undefined, code: string, so
   return { record, isNew: !previous };
 }
 
-async function fetchSource(source: typeof CODE_SOURCES[number]): Promise<{ status: RadarSourceStatus; codes: string[] }> {
+async function fetchSource(source: typeof CODE_SOURCES[number]): Promise<RadarResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
@@ -88,6 +112,30 @@ async function fetchSource(source: typeof CODE_SOURCES[number]): Promise<{ statu
     };
   } catch (error) {
     return { status: { source: source.id, url: source.url, fetchedAt: new Date().toISOString(), ok: false, error: error instanceof Error ? error.message : "fetch failed", candidates: 0 }, codes: [] };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchDiscordChannel(state: KVNamespace, channelId: string, token: string): Promise<RadarResult> {
+  const lastKey = `codes:discord:last:${channelId}`;
+  const last = await state.get(lastKey) ?? undefined;
+  const endpoint = new URL(`https://discord.com/api/v10/channels/${encodeURIComponent(channelId)}/messages`);
+  endpoint.searchParams.set("limit", "25");
+  if (last) endpoint.searchParams.set("after", last);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const source = `discord:${channelId}`;
+  try {
+    const response = await fetch(endpoint, { headers: { Authorization: `Bot ${token}` }, signal: controller.signal });
+    if (!response.ok) return { status: { source, url: endpoint.toString(), fetchedAt: new Date().toISOString(), ok: false, status: response.status, candidates: 0 }, codes: [] };
+    const messages = await response.json() as DiscordMessage[];
+    const ids = messages.map((message) => message.id).filter(Boolean).sort();
+    if (ids.length) await state.put(lastKey, ids[ids.length - 1]);
+    const codes = scanDiscordMessages(messages, channelId);
+    return { status: { source, url: endpoint.toString(), fetchedAt: new Date().toISOString(), ok: true, status: response.status, candidates: codes.length }, codes };
+  } catch (error) {
+    return { status: { source, url: endpoint.toString(), fetchedAt: new Date().toISOString(), ok: false, error: error instanceof Error ? error.message : "Discord fetch failed", candidates: 0 }, codes: [] };
   } finally {
     clearTimeout(timeout);
   }
@@ -105,7 +153,7 @@ export async function seedRadarCodes(state: KVNamespace): Promise<void> {
   await state.put("codes:index", JSON.stringify([...new Set([...index, ...seeded])]));
 }
 
-export async function runCodeRadar(state: KVNamespace, watchedTags: string[], telegramToken?: string, telegramChatId?: string): Promise<void> {
+export async function runCodeRadar(state: KVNamespace, watchedTags: string[], telegramToken?: string, telegramChatId?: string, discordToken?: string, discordChannelIds?: string): Promise<void> {
   await seedRadarCodes(state);
   const seeded = new Set(["FIREANDICE!!", "WHENHOGSFLY!", "TRUSTYTURRET", "ROYALEAFFAIR", "REINABARRIGA"]);
   const migrationKey = "codes:migration:user-verified-jul-2026";
@@ -137,12 +185,22 @@ export async function runCodeRadar(state: KVNamespace, watchedTags: string[], te
   }
   await state.put("codes:index", JSON.stringify(cleanIndex));
   const results = await Promise.all(CODE_SOURCES.map(fetchSource));
+  const discordChannels = discordToken && discordChannelIds ? discordChannelIds.split(",").map((id) => id.trim()).filter(Boolean) : [];
+  if (discordToken && discordChannels.length) {
+    const discordResults = await Promise.all(discordChannels.map((channelId) => fetchDiscordChannel(state, channelId, discordToken)));
+    for (const result of discordResults) {
+      await state.put(`codes:source:${result.status.source}`, JSON.stringify(result.status));
+      results.push(result);
+    }
+  }
   for (const result of results) await state.put(`codes:source:${result.status.source}`, JSON.stringify(result.status));
   const index = await state.get<string[]>("codes:index", "json") ?? [];
   const known = new Set(index);
-  for (const result of results) for (const code of result.codes) {
+  for (const result of results) for (const item of result.codes) {
+    const code = typeof item === "string" ? item : item.code;
+    const source = typeof item === "string" ? result.status.source : item.source;
     const previous = (await state.get<RadarCode>(`codes:record:${code}`, "json")) ?? undefined;
-    const merged = mergeRadarCode(previous, code, result.status.source);
+    const merged = mergeRadarCode(previous, code, source);
     await state.put(`codes:record:${code}`, JSON.stringify(merged.record));
     known.add(code);
     if (merged.record.stale) continue;
