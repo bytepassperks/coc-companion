@@ -29,8 +29,20 @@ export const CODE_SOURCES = [
 ] as const;
 
 const KNOWN_CREATOR_CODES = new Set(["NINJA", "JUDO", "ITZU", "CLASHNINJA", "CLASHKING"]);
-const COMMON_WORDS = new Set(["CLASHOFCLANS", "SUPERCELL", "REDEEMCODE", "REWARD", "PROMOCODE", "DISCOUNT", "STORECODE"]);
+const COMMON_WORDS = new Set(["CLASHOFCLANS", "SUPERCELL", "REDEEMCODE", "REWARD", "PROMOCODE", "DISCOUNT", "STORECODE", "REGISTER", "EVERYONE", "VALENTINE", "DOWNLOAD", "SUBSCRIBE", "POWERPOINTS", "BRAWLENTINE"]);
+const CODE_WORDS = ["ALEX", "CALIBUR", "MAGIC", "GIFT", "SHARE", "GOLD", "BARBARIAN", "CLASH", "HOG", "FIRE", "ICE", "TRUSTY", "TURRET", "ROYAL", "AFFAIR", "REINA", "BARRIGA", "WHEN", "FLY"];
 const CONTEXT = /\b(code|codes|redeem|reward|rewards|promo|promotion|store|voucher|claim)\b/i;
+
+export function isLikelyCode(code: string, context = ""): boolean {
+  const bare = code.replace(/[!$]+$/, "");
+  if (COMMON_WORDS.has(bare) || KNOWN_CREATOR_CODES.has(bare) || bare.length < 8 || bare.length > 16) return false;
+  if (/\d/.test(bare) && (bare.match(/\d/g)?.length ?? 0) >= 2) return false;
+  if (!/[AEIOU]/.test(bare) || (bare.length === 8 && !/[AEIOU].*[AEIOU]/.test(bare))) return false;
+  if (!/[A-Z]/.test(bare) || (!CODE_WORDS.some((word) => bare.includes(word)) && bare.length < 10)) return false;
+  const lowerContext = context.toLowerCase();
+  if (/\bbrawl\s+stars\b|\bbrawlstars\b/.test(lowerContext) && !/clash\s+of\s+clans|\bclashofclans\b/.test(lowerContext)) return false;
+  return true;
+}
 
 export function extractCandidateCodes(html: string, sourceUrl: string): string[] {
   const candidates = new Set<string>();
@@ -39,7 +51,7 @@ export function extractCandidateCodes(html: string, sourceUrl: string): string[]
     const start = match.index ?? 0;
     const context = html.slice(Math.max(0, start - 140), Math.min(html.length, start + code.length + 140));
     const bare = code.replace(/[!$]+$/, "");
-    if (!CONTEXT.test(context) || COMMON_WORDS.has(bare) || KNOWN_CREATOR_CODES.has(bare) || /^\d+$/.test(bare) || !/[A-Z]/.test(bare)) continue;
+    if (!CONTEXT.test(context) || !isLikelyCode(code, context) || /^\d+$/.test(bare)) continue;
     if (new URL(sourceUrl).hostname.includes("supercell.com") || CONTEXT.test(context)) candidates.add(code);
   }
   return [...candidates];
@@ -89,6 +101,14 @@ export async function seedRadarCodes(state: KVNamespace): Promise<void> {
 
 export async function runCodeRadar(state: KVNamespace, watchedTags: string[], telegramToken?: string, telegramChatId?: string): Promise<void> {
   await seedRadarCodes(state);
+  const seeded = new Set(["FIREANDICE!!", "WHENHOGSFLY!", "TRUSTYTURRET", "ROYALEAFFAIR", "REINABARRIGA"]);
+  const initialIndex = await state.get<string[]>("codes:index", "json") ?? [];
+  const cleanIndex: string[] = [];
+  for (const code of initialIndex) {
+    if (seeded.has(code) || isLikelyCode(code)) cleanIndex.push(code);
+    else await state.delete(`codes:record:${code}`);
+  }
+  await state.put("codes:index", JSON.stringify(cleanIndex));
   const results = await Promise.all(CODE_SOURCES.map(fetchSource));
   for (const result of results) await state.put(`codes:source:${result.status.source}`, JSON.stringify(result.status));
   const index = await state.get<string[]>("codes:index", "json") ?? [];

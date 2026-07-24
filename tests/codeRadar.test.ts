@@ -1,10 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { codeTier, extractCandidateCodes, mergeRadarCode } from "../src/codeRadar";
+import { codeTier, extractCandidateCodes, isLikelyCode, mergeRadarCode } from "../src/codeRadar";
 
 describe("code radar", () => {
   it("extracts contextual codes and rejects ordinary uppercase words", () => {
-    const html = "Redeem code FIREANDICE!! for a reward. SUPERCELL CLASHOFCLANS REDEEMCODE.";
+    const html = "Redeem code FIREANDICE!! for a reward. REGISTER EVERYONE VALENTINE POWERPOINTS BRAWLENTINE.";
     expect(extractCandidateCodes(html, "https://example.com/codes")).toEqual(["FIREANDICE!!"]);
+  });
+
+  it("rejects hashes, short random tokens, and other-game candidates", () => {
+    for (const code of ["C05FVFNDQVBFM", "N53HQYS1MN", "DAPMSQAT", "BS3Q43IS", "DKZ5D656", "KO2EQAUM", "SV3NUXGI", "LPVIOIFW", "DDYBGURG", "EIV7ROLQ"]) {
+      expect(isLikelyCode(code), code).toBe(false);
+    }
+    expect(isLikelyCode("BRAWLENTINE", "Brawl Stars redeem code")).toBe(false);
+    expect(isLikelyCode("ALEXCALIBUR")).toBe(true);
+    expect(isLikelyCode("ONEMAGICGIFT")).toBe(true);
+    expect(isLikelyCode("SHARETHEGOLD")).toBe(true);
+    expect(isLikelyCode("BARBARIANCWL")).toBe(true);
   });
 
   it("assigns official and corroborated tiers", () => {
